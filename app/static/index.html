@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RingBreaker | Graph Fraud Detection for PayPal Payments</title>
+  <meta name="description" content="RingBreaker connects PayPal payments into a live graph, scores accounts using a graph neural network, and explains flagged clusters in plain language before funds settle.">
+  <link rel="canonical" href="https://ringbreaker.dev/">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+
+  <!-- Open Graph and Social Sharing Metadata -->
+  <meta property="og:title" content="RingBreaker | Graph Fraud Detection for PayPal Payments">
+  <meta property="og:description" content="Catch organized multi account fraud rings on PayPal sandbox payments using GraphSAGE and a grounded investigator before capture.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="/static/favicon.svg">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="RingBreaker | Graph Fraud Detection for PayPal Payments">
+  <meta name="twitter:description" content="Catch organized multi account fraud rings on PayPal sandbox payments before capture.">
+  <meta name="twitter:image" content="/static/favicon.svg">
+
+  <!-- Fonts: Geist and Geist Mono -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/core.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/mono.css">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Geist', 'sans-serif'],
+            mono: ['Geist Mono', 'monospace'],
+          },
+          colors: {
+            surface: {
+              base: '#000000',
+              card: '#181818',
+              elevated: '#1F1F1F',
+              border: '#272727',
+              hover: '#313131',
+              darker: '#131209',
+            },
+            risk: {
+              low: '#10B981',
+              medium: '#F59E0B',
+              high: '#F43F5E',
+            }
+          },
+          transitionTimingFunction: {
+            base: 'cubic-bezier(0.22, 1, 0.36, 1)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Cytoscape CDN for Interactive Mini Graph Hero -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+
+  <style>
+    /* Strict Design Skill Typography & Base Tokens */
+    body {
+      background-color: #000000;
+      color: #FFFFFF;
+      font-family: 'Geist', sans-serif;
+      text-wrap: pretty;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      text-wrap: balance;
+    }
+    .heading-1 { font-size: 3.75rem; line-height: 1; font-weight: 600; }
+    .heading-2 { font-size: 3rem; line-height: 1; font-weight: 600; }
+    .heading-3 { font-size: 2.25rem; line-height: 2.5rem; font-weight: 600; }
+    .heading-4 { font-size: 1.875rem; line-height: 2.25rem; font-weight: 600; }
+    .heading-5 { font-size: 1.5rem; line-height: 2rem; font-weight: 600; }
+    .heading-6 { font-size: 1.25rem; line-height: 1.75rem; font-weight: 600; }
+    .title-2 { font-size: 1.125rem; line-height: 1.75rem; font-weight: 500; }
+    .title-3 { font-size: 1rem; line-height: 1.5rem; font-weight: 500; }
+    .title-4 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; }
+    .body-2 { font-size: 1rem; line-height: 1.5rem; font-weight: 500; }
+    .body-3 { font-size: 1rem; line-height: 1.5rem; font-weight: 400; }
+    .body-4 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; }
+    .body-5 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; }
+    .body-6 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 400; }
+    .button-md { font-size: 1rem; line-height: 1.5rem; font-weight: 600; padding: 8px 12px; }
+    .button-sm { font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; padding: 8px 12px; }
+    .caption-2 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 400; }
+    .caption-3 { font-size: 0.75rem; line-height: 1rem; font-weight: 600; }
+    .caption-4 { font-size: 0.75rem; line-height: 1rem; font-weight: 500; }
+    .caption-5 { font-size: 0.75rem; line-height: 1rem; font-weight: 400; }
+
+    /* Hero Gradient: only place gradients are permitted per B5 (text only, #FFFFFF to #9B9B9B) */
+    .hero-text-gradient {
+      background: linear-gradient(90deg, #FFFFFF 0%, #9B9B9B 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .base-curve {
+      transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Scroll Reveal Initial and Revealed Classes (B7) */
+    .reveal-section {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1), transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .reveal-section.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Tagline Reveal Words (B11) */
+    .tagline-word {
+      color: #FFFFFF;
+      opacity: 0.28;
+      transition: opacity 500ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .tagline-word.active {
+      opacity: 1;
+    }
+
+    /* Hero Mini Graph Canvas */
+    #hero-cy {
+      width: 100%;
+      height: 320px;
+      background-color: #000000;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        transform: none !important;
+      }
+      .reveal-section {
+        opacity: 1 !important;
+        transform: none !important;
+      }
+      .tagline-word {
+        opacity: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-black text-white selection:bg-[#313131] flex flex-col">
+
+  <!-- Skip to content link for accessibility -->
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:py-2 focus:px-3 focus:bg-white focus:text-black focus:rounded-md caption-3">
+    Skip to content
+  </a>
+
+  <!-- Floating Navigation Bar (B7) -->
+  <header class="fixed top-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
+    <nav class="bg-[#181818]/90 backdrop-blur-md border border-[#272727] rounded-full px-6 py-2 flex items-center justify-between gap-8 max-w-[760px] w-full pointer-events-auto shadow-2xl">
+      <div class="flex items-center gap-3">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+        <span class="title-4 text-white">RingBreaker</span>
+      </div>
+      
+      <div class="hidden sm:flex items-center gap-6 caption-4 text-neutral-400">
+        <a href="#problem" class="hover:text-white transition-colors duration-300 base-curve">Problem</a>
+        <a href="#benefits" class="hover:text-white transition-colors duration-300 base-curve">Outcomes</a>
+        <a href="#how-it-works" class="hover:text-white transition-colors duration-300 base-curve">Lifecycle</a>
+        <a href="#limitations" class="hover:text-white transition-colors duration-300 base-curve">Limitations</a>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <a href="/dashboard" class="button-sm rounded-full bg-white text-black hover:bg-neutral-200 transition-colors duration-300 base-curve focus-visible:ring-2 focus-visible:ring-white focus:outline-none">
+          Open live demo
+        </a>
+        <!-- Mobile Menu Toggle Button -->
+        <button id="mobile-menu-btn" onclick="toggleMobileMenu()" class="sm:hidden p-2 text-neutral-400 hover:text-white focus:outline-none" aria-label="Toggle navigation menu">
+          <svg id="menu-icon" class="w-5 h-5 transition-transform duration-300 base-curve" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Full Height Mobile Navigation Overlay (B7) -->
+  <div id="mobile-menu" class="fixed inset-0 z-30 bg-[#000000]/95 backdrop-blur-xl flex flex-col justify-center items-center gap-6 px-8 hidden transition-opacity duration-300 base-curve" aria-hidden="true">
+    <div class="flex flex-col items-center gap-6 text-center title-2">
+      <a href="#problem" onclick="toggleMobileMenu()" class="mobile-link text-neutral-300 hover:text-white py-2">Problem</a>
+      <a href="#benefits" onclick="toggleMobileMenu()" class="mobile-link text-neutral-300 hover:text-white py-2">Outcomes</a>
+      <a href="#how-it-works" onclick="toggleMobileMenu()" class="mobile-link text-neutral-300 hover:text-white py-2">Lifecycle</a>
+      <a href="#limitations" onclick="toggleMobileMenu()" class="mobile-link text-neutral-300 hover:text-white py-2">Limitations</a>
+      <a href="/dashboard" class="mobile-link mt-4 button-md rounded-full bg-white text-black font-semibold">Open live demo</a>
+    </div>
+  </div>
+
+  <main id="main-content" class="flex-1">
+
+    <!-- 1. Hero Section (A2, B5) -->
+    <section class="pt-32 pb-20 px-6 max-w-[1200px] mx-auto flex flex-col items-center text-center">
+      
+      <!-- Proof Signal Badge (7.2) -->
+      <div id="hero-proof-badge" class="inline-flex items-center gap-2 py-1 px-3 rounded-full bg-[#181818] border border-[#272727] caption-3 font-mono text-neutral-300 mb-6">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        <span id="proof-badge-text">On synthetic data, recall 98.4% vs 71.0% for strong tabular baseline at 2.0% false positive rate (183 test positives)</span>
+      </div>
+
+      <!-- Hero Heading (Gradient, max 680px, line breaks at meaningful thoughts per B5) -->
+      <h1 class="hero-text-gradient heading-2 sm:heading-1 tracking-tight max-w-[680px] mb-6">
+        Catch fraud rings on PayPal payments before funds clear
+      </h1>
+
+      <!-- Subheadline (max 680px) -->
+      <p class="text-neutral-400 body-2 max-w-[640px] mb-8 leading-relaxed">
+        Isolated payment checks miss organized multi account fraud. RingBreaker connects sandbox transactions into a live graph, scores accounts using a graph neural network, and explains flagged clusters in plain language.
+      </p>
+
+      <!-- Primary Call to Action -->
+      <div class="flex flex-col sm:flex-row items-center gap-4 mb-16">
+        <a href="/dashboard" class="button-md rounded-md bg-white text-black hover:bg-neutral-200 transition-colors duration-300 base-curve shadow-xl shadow-white/5 focus-visible:ring-2 focus-visible:ring-white focus:outline-none">
+          Open live demo
+        </a>
+        <span class="caption-4 text-neutral-400 font-mono">PayPal developer sandbox prototype &bull; MIT License</span>
+      </div>
+
+      <!-- Hero Visual: Real Mini Graph Canvas (7.1, C13) -->
+      <div class="w-full max-w-[960px] bg-[#181818] border border-[#272727] rounded-xl p-4 sm:p-6 shadow-2xl relative overflow-hidden text-left">
+        <div class="flex flex-wrap items-center justify-between pb-3 border-b border-[#272727] mb-4 gap-2 caption-4 font-mono text-neutral-400">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+            <span class="text-neutral-200">Live multi account transaction graph</span>
+          </div>
+          <span class="text-emerald-400">GraphSAGE inference active</span>
+        </div>
+        
+        <!-- Cytoscape Container for Real Live Network Visualization -->
+        <div class="relative rounded-lg border border-[#272727] overflow-hidden bg-black">
+          <div id="hero-cy" role="region" aria-label="Interactive mini graph preview of transaction network"></div>
+          <div id="hero-graph-status" class="absolute bottom-3 left-3 py-1 px-2.5 rounded bg-[#181818]/90 border border-[#272727] caption-5 font-mono text-neutral-300 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>Interactive graph: click nodes to inspect</span>
+          </div>
+        </div>
+
+        <p class="caption-5 font-mono text-neutral-400 mt-3 text-center">
+          Synthetic training graph and PayPal sandbox demo. Scored before capture settlement.
+        </p>
+      </div>
+
+    </section>
+
+    <!-- 2. Problem to Solution Section (Scroll Reveal) -->
+    <section id="problem" class="reveal-section py-20 px-6 border-t border-[#272727] max-w-[1000px] mx-auto">
+      <div class="max-w-[680px] mb-8">
+        <span class="caption-3 font-mono text-neutral-400 uppercase tracking-wider block mb-2">The architecture gap</span>
+        <h2 class="heading-5 sm:heading-4 tracking-tight text-white mb-4">
+          Per payment checks evaluate row by row. Fraud rings operate network by network.
+        </h2>
+        <p class="text-neutral-400 body-4 leading-relaxed font-normal">
+          When an organized fraud ring distributes funds across multiple accounts, each transaction appears small, ordinary, and clean. Single row checks pass them every time. When transactions are scored as a graph, circular laundering loops, mule consolidation funnels, and shared device signatures become visible.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-6">
+          <span class="caption-3 font-mono text-rose-400 block mb-2">Traditional checkout checks</span>
+          <h3 class="title-3 text-white mb-2">Scores transactions in isolation</h3>
+          <p class="caption-2 text-neutral-400 leading-relaxed">
+            Evaluates single amounts, card BINs, and email age. Misses multi hop mule consolidation, layering loops, and account farms operating across shared hardware.
+          </p>
+        </div>
+
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-6">
+          <span class="caption-3 font-mono text-emerald-400 block mb-2">RingBreaker graph intelligence</span>
+          <h3 class="title-3 text-white mb-2">Scores accounts by graph neighborhood</h3>
+          <p class="caption-2 text-neutral-400 leading-relaxed">
+            Aggregates multi hop payment flows and shared device tags using GraphSAGE. Authorizes payment first, scores risk during transit, and captures or voids based on graph topology.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Mandatory Tagline Reveal Section (B11) -->
+    <section id="tagline-reveal" class="py-28 px-6 border-t border-[#272727] max-w-[960px] mx-auto text-center" aria-label="Core mission statement">
+      <div class="caption-3 font-mono text-neutral-400 uppercase tracking-wider mb-6">Core principle</div>
+      <p id="reveal-text" class="heading-4 sm:heading-3 tracking-tight leading-tight max-w-[780px] mx-auto">
+        <span class="tagline-word">Single</span>
+        <span class="tagline-word">payment</span>
+        <span class="tagline-word">checks</span>
+        <span class="tagline-word">evaluate</span>
+        <span class="tagline-word">one</span>
+        <span class="tagline-word">row</span>
+        <span class="tagline-word">at</span>
+        <span class="tagline-word">a</span>
+        <span class="tagline-word">time.</span>
+        <span class="tagline-word">RingBreaker</span>
+        <span class="tagline-word">evaluates</span>
+        <span class="tagline-word">the</span>
+        <span class="tagline-word">entire</span>
+        <span class="tagline-word">network</span>
+        <span class="tagline-word">before</span>
+        <span class="tagline-word">money</span>
+        <span class="tagline-word">moves.</span>
+      </p>
+    </section>
+
+    <!-- 4. Direct Outcomes Section (A2, A5, 7.3) -->
+    <section id="benefits" class="reveal-section py-20 px-6 border-t border-[#272727] max-w-[1000px] mx-auto">
+      <div class="max-w-[680px] mb-12">
+        <span class="caption-3 font-mono text-neutral-400 uppercase tracking-wider block mb-2">Measured outcomes</span>
+        <h2 class="heading-5 sm:heading-4 tracking-tight text-white mb-3">
+          Engineered for risk analysts and high volume merchants
+        </h2>
+        <p class="text-neutral-400 body-4 font-normal">
+          Intercept coordinated multi account transfers while keeping automated false declines under control.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-6 flex flex-col justify-between">
+          <div>
+            <span class="caption-3 font-mono text-neutral-400 block mb-2">Outcome 01</span>
+            <h3 class="title-3 text-white mb-2">Early voiding before capture</h3>
+            <p class="caption-2 text-neutral-400 leading-relaxed">
+              By keeping orders in an authorized state during scoring, RingBreaker voids fraudulent authorizations before settlement capture occurs.
+            </p>
+          </div>
+        </div>
+
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-6 flex flex-col justify-between">
+          <div>
+            <span class="caption-3 font-mono text-neutral-400 block mb-2">Outcome 02</span>
+            <h3 class="title-3 text-white mb-2">Calibrated review holds</h3>
+            <p class="caption-2 text-neutral-400 leading-relaxed">
+              Borderline scores hold payments uncaptured rather than declining buyers immediately. Risk teams make final determinations with factual evidence.
+            </p>
+          </div>
+        </div>
+
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-6 flex flex-col justify-between">
+          <div>
+            <span class="caption-3 font-mono text-neutral-400 block mb-2">Outcome 03</span>
+            <h3 class="title-3 text-white mb-2">Grounded graph explanations</h3>
+            <p class="caption-2 text-neutral-400 leading-relaxed">
+              The AI investigator summarizes transaction clusters citing computed graph facts verified against actual transaction histories.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 5. How It Works Section (3 Steps per A2) -->
+    <section id="how-it-works" class="reveal-section py-20 px-6 border-t border-[#272727] max-w-[1000px] mx-auto">
+      <div class="max-w-[680px] mb-12">
+        <span class="caption-3 font-mono text-neutral-400 uppercase tracking-wider block mb-2">Execution lifecycle</span>
+        <h2 class="heading-5 sm:heading-4 tracking-tight text-white mb-3">
+          Three steps from checkout authorization to settlement
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-6">
+          <span class="w-8 h-8 rounded-full bg-[#1F1F1F] border border-[#272727] text-neutral-300 font-mono caption-3 flex items-center justify-center mb-4">1</span>
+          <h3 class="title-3 text-white mb-2">Authorize order</h3>
+          <p class="caption-2 text-neutral-400 leading-relaxed">
+            Checkout creates an order with intent AUTHORIZE. Buyer funds are held but not yet captured by the merchant account.
+          </p>
+        </div>
+
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-6">
+          <span class="w-8 h-8 rounded-full bg-[#1F1F1F] border border-[#272727] text-neutral-300 font-mono caption-3 flex items-center justify-center mb-4">2</span>
+          <h3 class="title-3 text-white mb-2">Graph neural scoring</h3>
+          <p class="caption-2 text-neutral-400 leading-relaxed">
+            The transaction edge connects to the live graph. GraphSAGE message passing rescores sender and receiver across two hop neighborhoods.
+          </p>
+        </div>
+
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-6">
+          <span class="w-8 h-8 rounded-full bg-[#1F1F1F] border border-[#272727] text-neutral-300 font-mono caption-3 flex items-center justify-center mb-4">3</span>
+          <h3 class="title-3 text-white mb-2">Route response tier</h3>
+          <p class="caption-2 text-neutral-400 leading-relaxed">
+            Low risk captures automatically. High risk voids immediately. Medium risk routes to the analyst review queue with cluster evidence.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 6. Limitations FAQ Section (Transparent Disclosure per 7.3) -->
+    <section id="limitations" class="reveal-section py-20 px-6 border-t border-[#272727] max-w-[800px] mx-auto">
+      <div class="mb-12">
+        <span class="caption-3 font-mono text-neutral-400 uppercase tracking-wider block mb-2">Transparent disclosure</span>
+        <h2 class="heading-5 sm:heading-4 tracking-tight text-white mb-3">
+          Limitations and honest trade offs
+        </h2>
+        <p class="text-neutral-400 body-4 font-normal">
+          Machine learning risk scoring involves measured trade offs between fraud interception and review burden.
+        </p>
+      </div>
+
+      <div class="space-y-4 caption-2">
+        
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-5">
+          <h3 class="title-4 text-white mb-2">Does RingBreaker have false positives?</h3>
+          <p class="text-neutral-400 leading-relaxed">
+            Yes. Legitimate behavior such as roommates splitting rent or small business coworkers sharing an office device can resemble multi account clusters. To protect legitimate buyers, borderline transactions route to human review rather than automatic cancellation.
+          </p>
+        </div>
+
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-5">
+          <h3 class="title-4 text-white mb-2">Can fraud rings evade detection?</h3>
+          <p class="text-neutral-400 leading-relaxed">
+            Yes. If an organized group introduces long delays between transfers (weeks or months) or avoids shared devices, graph context builds slowly. The tunable operating threshold slider allows merchants to increase recall sensitivity at the cost of higher review volume.
+          </p>
+        </div>
+
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-5">
+          <h3 class="title-4 text-white mb-2">What data was the model trained on?</h3>
+          <p class="text-neutral-400 leading-relaxed">
+            The models were trained and evaluated on a synthetic financial graph with injected ring topologies and hard negatives (roommates, shared kiosks, payroll bursts). Real world deployment requires training on labeled merchant historical ledgers.
+          </p>
+        </div>
+
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-5">
+          <h3 class="title-4 text-white mb-2">Are device fingerprints and IP identifiers real?</h3>
+          <p class="text-neutral-400 leading-relaxed">
+            No. The PayPal developer sandbox does not provide real device hardware telemetry. Device IDs are simulated metadata attached by the checkout simulator for evaluation.
+          </p>
+        </div>
+
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-5">
+          <h3 class="title-4 text-white mb-2">Why does the GNN beat the tabular baseline?</h3>
+          <p class="text-neutral-400 leading-relaxed">
+            Across 5 seed evaluations on held out rings, GraphSAGE achieved 0.9882 PR-AUC compared to 0.9097 for a strong XGBoost baseline with 28 engineered graph features. The GNN captures multi hop directed flow patterns and cycle topology directly, whereas tabular aggregations only summarize local neighborhood statistics.
+          </p>
+        </div>
+
+        <div class="bg-[#181818] border border-[#272727] rounded-xl p-5">
+          <h3 class="title-4 text-white mb-2">Is real money involved?</h3>
+          <p class="text-neutral-400 leading-relaxed">
+            No. This project is strictly a prototype for the PayPal AI Hackathon running against the developer sandbox environment.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 7. Final Call to Action (Identical to Top per A2) -->
+    <section class="reveal-section py-24 px-6 border-t border-[#272727] text-center max-w-[800px] mx-auto">
+      <h2 class="heading-4 sm:heading-3 tracking-tight text-white mb-4">
+        Explore the live graph fraud detector
+      </h2>
+      <p class="text-neutral-400 body-4 font-normal max-w-[500px] mx-auto mb-8 leading-relaxed">
+        Launch the analyst dashboard to simulate fraud attacks, inspect neighborhood graph metrics, and review plain language evidence.
+      </p>
+      <a href="/dashboard" class="inline-block button-md rounded-md bg-white text-black hover:bg-neutral-200 transition-colors duration-300 base-curve shadow-xl shadow-white/5 focus-visible:ring-2 focus-visible:ring-white focus:outline-none font-semibold">
+        Open live demo
+      </a>
+    </section>
+
+  </main>
+
+  <!-- Footer (B10) -->
+  <footer class="border-t border-[#272727] py-8 px-6 caption-4 text-neutral-400 flex flex-col sm:flex-row items-center justify-between max-w-[1200px] w-full mx-auto gap-4">
+    <div>
+      RingBreaker &bull; PayPal AI Hackathon 2026 Prototype (MIT License)
+    </div>
+    <div class="flex items-center gap-6">
+      <a href="/dashboard" class="hover:text-white transition-colors duration-300 base-curve">Dashboard</a>
+      <a href="/privacy" class="hover:text-white transition-colors duration-300 base-curve">Privacy notice</a>
+      <a href="/terms" class="hover:text-white transition-colors duration-300 base-curve">Evaluation terms</a>
+      <a href="/docs" target="_blank" rel="noopener" class="hover:text-white transition-colors duration-300 base-curve">API documentation</a>
+    </div>
+  </footer>
+
+  <!-- Script: Real Hero Cytoscape Graph, Scroll Reveals & Tagline per Word (B7, B11, 7.1) -->
+  <script>
+    let heroCy = null;
+
+    // Mobile Menu Toggle
+    function toggleMobileMenu() {
+      const menu = document.getElementById('mobile-menu');
+      const isHidden = menu.classList.contains('hidden');
+      if (isHidden) {
+        menu.classList.remove('hidden');
+        menu.setAttribute('aria-hidden', 'false');
+      } else {
+        menu.classList.add('hidden');
+        menu.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    // Initialize Real Mini Graph Preview (7.1)
+    async function initHeroGraph() {
+      heroCy = cytoscape({
+        container: document.getElementById('hero-cy'),
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'label': 'data(label)',
+              'color': '#E5E5E5',
+              'font-size': '12px',
+              'font-family': 'Geist Mono, monospace',
+              'text-valign': 'bottom',
+              'text-margin-y': '6px',
+              'width': '22px',
+              'height': '22px',
+              'background-color': '#10B981',
+              'border-width': '1px',
+              'border-color': '#272727'
+            }
+          },
+          {
+            selector: 'node[risk_tier = "MEDIUM"]',
+            style: { 'background-color': '#F59E0B', 'shape': 'round-rectangle', 'width': '24px', 'height': '24px' }
+          },
+          {
+            selector: 'node[risk_tier = "HIGH"]',
+            style: { 'background-color': '#F43F5E', 'shape': 'octagon', 'width': '28px', 'height': '28px', 'border-width': '2px', 'border-color': '#FFFFFF' }
+          },
+          {
+            selector: 'edge',
+            style: {
+              'width': 1.5,
+              'line-color': '#313131',
+              'target-arrow-color': '#444444',
+              'target-arrow-shape': 'triangle',
+              'curve-style': 'bezier',
+              'arrow-scale': 0.8
+            }
+          }
+        ],
+        layout: {
+          name: 'cose',
+          animate: false,
+          nodeRepulsion: 6000,
+          idealEdgeLength: 60
+        }
+      });
+
+      try {
+        const res = await fetch('/api/graph?max_nodes=18');
+        if (res.ok) {
+          const elements = await res.json();
+          if (elements.nodes && elements.nodes.length > 0) {
+            heroCy.add(elements);
+            heroCy.layout({ name: 'cose', animate: false }).run();
+            return;
+          }
+        }
+      } catch (e) {}
+
+      // Fallback clean topological demo cluster
+      heroCy.add({
+        nodes: [
+          { data: { id: 'a1', label: 'acc_7b2', risk_tier: 'HIGH' } },
+          { data: { id: 'a2', label: 'acc_4e1', risk_tier: 'HIGH' } },
+          { data: { id: 'a3', label: 'acc_9f0', risk_tier: 'HIGH' } },
+          { data: { id: 'b1', label: 'acc_10a', risk_tier: 'MEDIUM' } },
+          { data: { id: 'c1', label: 'acc_22c', risk_tier: 'LOW' } },
+          { data: { id: 'c2', label: 'acc_88d', risk_tier: 'LOW' } }
+        ],
+        edges: [
+          { data: { id: 'e1', source: 'a1', target: 'a2' } },
+          { data: { id: 'e2', source: 'a2', target: 'a3' } },
+          { data: { id: 'e3', source: 'a3', target: 'a1' } },
+          { data: { id: 'e4', source: 'a3', target: 'b1' } },
+          { data: { id: 'e5', source: 'c1', target: 'c2' } }
+        ]
+      });
+      heroCy.layout({ name: 'cose', animate: false }).run();
+    }
+
+    // Load Live Metrics for Proof Badge (7.2)
+    async function initProofBadge() {
+      try {
+        const res = await fetch('/api/metrics');
+        if (!res.ok) return;
+        const data = await res.json();
+        const eqFpr = data.equal_operating_points && data.equal_operating_points.at_fpr_02_pct;
+        if (eqFpr && eqFpr.gnn && eqFpr.strong_baseline) {
+          const gnnRec = (eqFpr.gnn.recall * 100).toFixed(1);
+          const xgbRec = (eqFpr.strong_baseline.recall * 100).toFixed(1);
+          const totalPos = eqFpr.gnn.tp + eqFpr.gnn.fn;
+          document.getElementById('proof-badge-text').textContent = 
+            `On synthetic data, recall ${gnnRec}% vs ${xgbRec}% for strong tabular baseline at 2.0% false positive rate (${totalPos} test positives)`;
+        }
+      } catch (e) {}
+    }
+
+    // Section Scroll Reveals (B7)
+    function initScrollReveals() {
+      const sections = document.querySelectorAll('.reveal-section');
+      const observer = new IntersectionObserver((entries, obs) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('revealed');
+            obs.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15 });
+
+      sections.forEach(sec => observer.observe(sec));
+    }
+
+    // Mandatory Tagline Scroll Reveal (B11)
+    function initTaglineReveal() {
+      const words = document.querySelectorAll('.tagline-word');
+      const section = document.getElementById('tagline-reveal');
+      if (!section || !words.length) return;
+
+      // Word by word scroll progression throttled via requestAnimationFrame (B7, B11)
+      let ticking = false;
+      function checkTaglineScroll() {
+        const rect = section.getBoundingClientRect();
+        const windowHeight = window.innerHeight;
+        
+        // Progress from 0 when section enters to 1 when section is centered
+        const start = windowHeight * 0.85;
+        const end = windowHeight * 0.35;
+        let progress = (start - rect.top) / (start - end);
+        progress = Math.max(0, Math.min(1, progress));
+
+        const activeCount = Math.floor(progress * words.length);
+        words.forEach((w, idx) => {
+          if (idx <= activeCount) {
+            w.classList.add('active');
+          } else {
+            w.classList.remove('active');
+          }
+        });
+        ticking = false;
+      }
+
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          window.requestAnimationFrame(checkTaglineScroll);
+          ticking = true;
+        }
+      }, { passive: true });
+
+      checkTaglineScroll();
+    }
+
+    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
+      initHeroGraph();
+      initProofBadge();
+      initScrollReveals();
+      initTaglineReveal();
+    });
+  </script>
+</body>
+</html>

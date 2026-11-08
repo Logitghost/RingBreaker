@@ -1,0 +1,9 @@
+{
+  "method": "platt_scaling",
+  "slope": 1.118295669555664,
+  "intercept": -1.8204305171966553,
+  "val_brier_uncalibrated": 0.011599971912801266,
+  "val_brier_calibrated": 0.007027823943644762,
+  "val_ece_uncalibrated": 0.01850642249159993,
+  "val_ece_calibrated": 0.00384148304339934
+}

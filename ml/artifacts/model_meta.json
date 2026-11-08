@@ -1,0 +1,22 @@
+{
+  "architecture": "RingBreakerGNN (3-layer GraphSAGE)",
+  "in_channels": 15,
+  "hidden_dim": 64,
+  "best_epoch": 84,
+  "best_val_loss": 0.0894,
+  "best_val_pr_auc": 0.9952,
+  "min_epochs_enforced": 30,
+  "calibration": {
+    "slope": 1.1183,
+    "intercept": -1.8204,
+    "brier_calibrated": 0.007,
+    "ece_calibrated": 0.0038
+  },
+  "artifacts": {
+    "weights": "ml/artifacts/gnn_model.pt",
+    "scaler": "ml/artifacts/scaler.json",
+    "node_mapping": "ml/artifacts/node_mapping.json",
+    "calibrator": "ml/artifacts/calibrator.json",
+    "train_log": "ml/artifacts/train_log.json"
+  }
+}

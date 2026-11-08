@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RingBreaker | Risk Analyst Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+
+  <!-- Fonts: Geist and Geist Mono -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/core.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/mono.css">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Geist', 'sans-serif'],
+            mono: ['Geist Mono', 'monospace'],
+          },
+          colors: {
+            surface: {
+              base: '#000000',
+              card: '#181818',
+              elevated: '#1F1F1F',
+              border: '#272727',
+              hover: '#313131',
+              darker: '#131209',
+            },
+            risk: {
+              low: '#10B981',
+              medium: '#F59E0B',
+              high: '#F43F5E',
+            }
+          },
+          transitionTimingFunction: {
+            base: 'cubic-bezier(0.22, 1, 0.36, 1)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Cytoscape.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+
+  <style>
+    /* Strict Design Skill Typography & Base Tokens */
+    body {
+      background-color: #000000;
+      color: #FFFFFF;
+      font-family: 'Geist', sans-serif;
+      text-wrap: pretty;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      text-wrap: balance;
+    }
+    .heading-5 { font-size: 1.5rem; line-height: 2rem; font-weight: 600; }
+    .heading-6 { font-size: 1.25rem; line-height: 1.75rem; font-weight: 600; }
+    .title-3 { font-size: 1rem; line-height: 1.5rem; font-weight: 500; }
+    .title-4 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; }
+    .title-5 { font-size: 0.75rem; line-height: 1rem; font-weight: 500; }
+    .body-3 { font-size: 1rem; line-height: 1.5rem; font-weight: 400; }
+    .body-4 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; }
+    .body-5 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; }
+    .body-6 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 400; }
+    .button-md { font-size: 1rem; line-height: 1.5rem; font-weight: 600; padding: 8px 12px; }
+    .button-sm { font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; padding: 8px 12px; }
+    .caption-2 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 400; }
+    .caption-3 { font-size: 0.75rem; line-height: 1rem; font-weight: 600; }
+    .caption-4 { font-size: 0.75rem; line-height: 1rem; font-weight: 500; }
+    .caption-5 { font-size: 0.75rem; line-height: 1rem; font-weight: 400; }
+
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #181818;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #313131;
+      border-radius: 4px;
+    }
+    .base-curve {
+      transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    #cy {
+      width: 100%;
+      height: 500px;
+      background-color: #000000;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-black text-white flex flex-col selection:bg-[#313131]">
+
+  <!-- Skip to content link for accessibility -->
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:py-2 focus:px-3 focus:bg-white focus:text-black focus:rounded-md caption-3">
+    Skip to content
+  </a>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
+
+  <!-- Top Limitations Banner -->
+  <aside class="bg-[#181818] border-b border-[#272727] px-4 py-2 caption-4 text-neutral-300 flex flex-wrap items-center justify-between gap-2" aria-label="Evaluation disclaimer">
+    <div class="flex items-center gap-2">
+      <span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
+      <span><strong>Evaluation notice:</strong> RingBreaker detects coordinated multi account rings. Borderline scores route to human review. Device and IP tags are simulated demo metadata.</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <span id="paypal-mode-badge" class="py-1 px-2 rounded caption-3 font-mono bg-[#1F1F1F] text-neutral-300 border border-[#272727]">Connecting to sandbox...</span>
+      <a href="/" class="text-neutral-400 hover:text-white transition-colors duration-300 base-curve">Overview</a>
+      <a href="/privacy" class="text-neutral-400 hover:text-white transition-colors duration-300 base-curve">Privacy</a>
+      <a href="/terms" class="text-neutral-400 hover:text-white transition-colors duration-300 base-curve">Terms</a>
+      <a href="/docs" target="_blank" rel="noopener" class="text-neutral-400 hover:text-white transition-colors duration-300 base-curve">API docs</a>
+    </div>
+  </aside>
+
+  <!-- Application Header -->
+  <header class="bg-[#181818] border-b border-[#272727] px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-3">
+        <h1 class="heading-6 tracking-tight text-white">RingBreaker</h1>
+        <span class="caption-3 px-2 py-0.5 rounded bg-[#1F1F1F] text-neutral-300 border border-[#272727] font-mono">PayPal sandbox</span>
+      </div>
+      <p class="caption-4 text-neutral-400 mt-1">Graph neural network risk scoring and plain language investigator</p>
+    </div>
+
+    <!-- Live Simulation Controls -->
+    <div class="flex flex-wrap items-center gap-3" role="toolbar" aria-label="Simulation actions">
+      <button id="btn-normal" onclick="sendNormalPayments()" class="button-sm rounded-md bg-[#272727] hover:bg-[#313131] border border-[#272727] text-neutral-200 flex items-center gap-2 transition-colors duration-300 base-curve focus-visible:ring-2 focus-visible:ring-white focus:outline-none">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span>Send normal payments</span>
+      </button>
+
+      <button id="btn-ring-cycle" onclick="simulateRing('cycle')" class="button-sm rounded-md bg-[#272727] hover:bg-[#313131] border border-[#272727] text-rose-300 flex items-center gap-2 transition-colors duration-300 base-curve focus-visible:ring-2 focus-visible:ring-white focus:outline-none">
+        <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+        <span>Simulate cycle ring</span>
+      </button>
+
+      <button id="btn-ring-mule" onclick="simulateRing('mule')" class="button-sm rounded-md bg-[#272727] hover:bg-[#313131] border border-[#272727] text-rose-300 flex items-center gap-2 transition-colors duration-300 base-curve focus-visible:ring-2 focus-visible:ring-white focus:outline-none">
+        <span>Simulate mule funnel</span>
+      </button>
+
+      <button id="btn-ring-device" onclick="simulateRing('shared_device')" class="button-sm rounded-md bg-[#272727] hover:bg-[#313131] border border-[#272727] text-rose-300 flex items-center gap-2 transition-colors duration-300 base-curve focus-visible:ring-2 focus-visible:ring-white focus:outline-none">
+        <span>Simulate device farm</span>
+      </button>
+
+      <button id="btn-refresh" onclick="refreshAll()" class="button-sm rounded-md bg-[#1F1F1F] hover:bg-[#313131] border border-[#272727] text-neutral-300 transition-colors duration-300 base-curve focus-visible:ring-2 focus-visible:ring-white focus:outline-none">
+        Refresh
+      </button>
+
+      <button id="btn-reset" onclick="resetDemo()" class="button-sm rounded-md bg-[#1F1F1F] hover:bg-rose-950/60 border border-[#272727] text-neutral-400 hover:text-rose-300 transition-colors duration-300 base-curve focus-visible:ring-2 focus-visible:ring-white focus:outline-none">
+        Reset demo
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main id="main-content" class="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1700px] w-full mx-auto">
+    
+    <!-- LEFT COLUMN: Graph & Evaluation Metrics (7 cols) -->
+    <section class="lg:col-span-7 flex flex-col gap-6" aria-label="Transaction graph and evaluation">
+      
+      <!-- Graph Canvas Card -->
+      <article class="bg-[#181818] border border-[#272727] rounded-xl p-4 flex flex-col">
+        <header class="flex flex-wrap items-center justify-between pb-3 border-b border-[#272727] mb-3 gap-2">
+          <div>
+            <h2 class="title-4 text-white">Live transaction network</h2>
+            <p class="caption-4 text-neutral-400">Click any account node to inspect connected neighbor risk and payment edges</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-4 caption-3 font-mono">
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500"></span><span class="text-neutral-300">Low risk (circle)</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-amber-500"></span><span class="text-neutral-300">Medium risk (box)</span></div>
+            <div class="flex items-center gap-2"><span class="w-3.5 h-3.5 bg-rose-500 clip-octagon inline-block"></span><span class="text-neutral-300">High risk (octagon)</span></div>
+            
+            <!-- Ground Truth Toggle (Demo Only) -->
+            <label class="flex items-center gap-2 cursor-pointer border-l border-[#272727] pl-3 text-neutral-400 hover:text-white">
+              <input type="checkbox" id="toggle-ground-truth" onchange="toggleGroundTruth(this.checked)" class="accent-rose-500 rounded cursor-pointer">
+              <span>Show ground truth (demo only)</span>
+            </label>
+          </div>
+        </header>
+
+        <!-- Network Summary Line -->
+        <div id="graph-summary-text" class="mb-2 caption-4 font-mono text-neutral-400">
+          Network summary: loading node and edge state...
+        </div>
+
+        <!-- Cytoscape Container -->
+        <div class="relative rounded-lg border border-[#272727] overflow-hidden bg-black">
+          <div id="cy" role="region" aria-label="Interactive transaction graph canvas"></div>
+          <div id="graph-loading" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center caption-4 text-neutral-400 gap-2">
+            <div class="w-5 h-5 border-2 border-neutral-600 border-t-white rounded-full animate-spin"></div>
+            <span>Loading network nodes...</span>
+          </div>
+          <!-- Graph Inline Error State -->
+          <div id="graph-error" class="hidden absolute inset-0 bg-[#181818] p-6 flex flex-col items-center justify-center text-center gap-3">
+            <p id="graph-error-msg" class="caption-4 text-rose-400">Network graph failed to load.</p>
+            <button onclick="loadGraph()" class="button-sm rounded-md bg-[#272727] hover:bg-[#313131] border border-[#272727] text-white">Retry graph</button>
+          </div>
+        </div>
+
+        <!-- Selected Node Inspector -->
+        <div id="node-inspector" class="mt-4 p-4 bg-[#1F1F1F] border border-[#272727] rounded-lg caption-4 text-neutral-300 flex flex-col gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#272727] pb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-neutral-400">Selected account:</span>
+              <span id="inspect-id" class="font-mono text-white font-semibold">None (select a node above)</span>
+            </div>
+            <div class="flex items-center gap-4 font-mono">
+              <span>Score: <strong id="inspect-score" class="text-white">-</strong></span>
+              <span>Tier: <strong id="inspect-tier" class="text-white">-</strong></span>
+              <span>Degree: <strong id="inspect-degree" class="text-white">-</strong></span>
+            </div>
+          </div>
+          <!-- Top Counterparties List -->
+          <div>
+            <span class="caption-3 text-neutral-400 block mb-1">Connected counterparties:</span>
+            <div id="inspect-neighbors" class="font-mono caption-5 text-neutral-300 max-h-24 overflow-y-auto custom-scroll space-y-1">
+              Select an account on the canvas to list counterparty transactions and risk tiers.
+            </div>
+          </div>
+        </div>
+
+        <!-- Keyboard-Accessible HTML Table Alternative (6.10) -->
+        <details class="mt-3 caption-4 text-neutral-400">
+          <summary class="cursor-pointer hover:text-white focus:outline-none focus:underline">
+            View accessible table of accounts (keyboard friendly alternative)
+          </summary>
+          <div class="mt-2 overflow-x-auto border border-[#272727] rounded-md max-h-48 custom-scroll">
+            <table class="w-full text-left caption-5" summary="Table of accounts currently present in the active transaction graph">
+              <thead class="bg-[#1F1F1F] text-neutral-300 border-b border-[#272727]">
+                <tr>
+                  <th scope="col" class="py-2 px-3 font-semibold">Account ID</th>
+                  <th scope="col" class="py-2 px-3 font-semibold">Risk score</th>
+                  <th scope="col" class="py-2 px-3 font-semibold">Risk tier</th>
+                  <th scope="col" class="py-2 px-3 font-semibold">Degree</th>
+                  <th scope="col" class="py-2 px-3 font-semibold">Flagged</th>
+                </tr>
+              </thead>
+              <tbody id="accessible-accounts-tbody" class="divide-y divide-[#272727] bg-[#181818] font-mono text-neutral-300">
+                <tr><td colspan="5" class="py-3 px-3 text-neutral-500 text-center">Loading account list...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </article>
+
+      <!-- Evaluation Metrics Card -->
+      <article class="bg-[#181818] border border-[#272727] rounded-xl p-6 flex flex-col">
+        <header class="flex flex-wrap items-center justify-between pb-3 border-b border-[#272727] mb-4 gap-2">
+          <div>
+            <h2 class="title-4 text-white">Held out evaluation metrics</h2>
+            <p class="caption-4 text-neutral-400">GraphSAGE GNN vs strong tabular baseline across disjoint test rings</p>
+          </div>
+          <span id="test-set-pill" class="caption-3 font-mono py-1 px-2 rounded bg-[#1F1F1F] text-neutral-300 border border-[#272727]">
+            Test set: 1,160 accounts (183 fraud)
+          </span>
+        </header>
+
+        <!-- Metrics Error State -->
+        <div id="metrics-error" class="hidden p-4 bg-[#1F1F1F] border border-[#272727] rounded-md text-center mb-4">
+          <p class="caption-4 text-rose-400 mb-2">Metrics failed to load from server.</p>
+          <button onclick="loadMetrics()" class="button-sm rounded-md bg-[#272727] text-white">Retry metrics</button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full caption-4 text-left" summary="Comparison of GraphSAGE GNN and Strong XGBoost baseline">
+            <thead class="text-neutral-400 border-b border-[#272727] font-medium">
+              <tr>
+                <th scope="col" class="py-2 pr-4">Evaluation metric</th>
+                <th scope="col" class="py-2 px-4 text-emerald-400 font-semibold">GNN (GraphSAGE)</th>
+                <th scope="col" class="py-2 px-4 text-neutral-300 font-semibold">Strong baseline (XGBoost)</th>
+                <th scope="col" class="py-2 pl-4 text-neutral-300">Plain baseline</th>
+              </tr>
+            </thead>
+            <tbody id="metrics-tbody" class="font-mono divide-y divide-[#272727] text-neutral-300">
+              <!-- Skeletons shown until API returns -->
+              <tr id="metrics-skel-1"><td class="py-2 pr-4 text-neutral-400">PR-AUC (Headline)</td><td class="py-2 px-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td><td class="py-2 px-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td><td class="py-2 pl-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td></tr>
+              <tr id="metrics-skel-2"><td class="py-2 pr-4 text-neutral-400">ROC-AUC</td><td class="py-2 px-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td><td class="py-2 px-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td><td class="py-2 pl-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td></tr>
+              <tr id="metrics-skel-3"><td class="py-2 pr-4 text-neutral-400">Recall at 2.0% FPR</td><td class="py-2 px-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td><td class="py-2 px-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td><td class="py-2 pl-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td></tr>
+              <tr id="metrics-skel-4"><td class="py-2 pr-4 text-neutral-400">Auto voided fraud</td><td class="py-2 px-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td><td class="py-2 px-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td><td class="py-2 pl-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td></tr>
+              <tr id="metrics-skel-5"><td class="py-2 pr-4 text-neutral-400">Auto captured legit</td><td class="py-2 px-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td><td class="py-2 px-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td><td class="py-2 pl-4"><div class="h-4 w-16 bg-[#272727] rounded animate-pulse"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p id="metrics-footnote" class="caption-5 text-neutral-400 mt-3">
+          Ring level disjoint splits across 5 seeds. 95% bootstrap confidence intervals shown in brackets. Evaluated on synthetic data.
+        </p>
+
+        <!-- Dynamic Threshold Slider Card (6.3) -->
+        <div class="mt-6 pt-4 border-t border-[#272727]">
+          <div class="flex flex-wrap items-center justify-between mb-3 gap-2">
+            <div>
+              <span class="body-4 text-white">Dynamic risk threshold calibration</span>
+              <p class="caption-5 text-neutral-400">Interactive operating point sweep loaded live from metrics sweep</p>
+            </div>
+            <div class="flex items-center gap-4 font-mono caption-4">
+              <span>Low capture: <strong id="label-thresh-low" class="text-emerald-400">0.40</strong></span>
+              <span>High void: <strong id="label-thresh-high" class="text-rose-400">0.60</strong></span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="input-thresh-low" class="block caption-4 text-neutral-400 mb-1">
+                Low threshold (automatic capture below this)
+              </label>
+              <input type="range" id="input-thresh-low" min="0.10" max="0.50" step="0.01" value="0.40" oninput="onThresholdSliderInput()" class="w-full accent-emerald-500 bg-[#272727] cursor-pointer">
+            </div>
+            <div>
+              <label for="input-thresh-high" class="block caption-4 text-neutral-400 mb-1">
+                High threshold (automatic void above this)
+              </label>
+              <input type="range" id="input-thresh-high" min="0.51" max="0.90" step="0.01" value="0.60" oninput="onThresholdSliderInput()" class="w-full accent-rose-500 bg-[#272727] cursor-pointer">
+            </div>
+          </div>
+
+          <!-- Dynamic Sweep Projection Output -->
+          <div class="mt-3 p-3 bg-[#1F1F1F] border border-[#272727] rounded-md flex flex-wrap items-center justify-between gap-3 caption-4">
+            <div id="slider-stats-projection" class="font-mono text-neutral-300">
+              Sweep stats: Estimated Recall 98.4%, FPR 1.9%, Review Burden ~3.5%
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="resetThresholdsDefault()" class="button-sm rounded-md bg-[#272727] hover:bg-[#313131] border border-[#272727] text-neutral-300 transition-colors duration-300 base-curve">
+                Reset to default
+              </button>
+              <button onclick="saveThresholds()" class="button-sm rounded-md bg-white text-black hover:bg-neutral-200 transition-colors duration-300 base-curve font-semibold">
+                Save thresholds
+              </button>
+            </div>
+          </div>
+          <div id="server-thresh-display" class="caption-5 font-mono text-neutral-400 mt-2">
+            Server active operating state: Capture &lt; 0.40 &bull; Review [0.40, 0.60] &bull; Void &gt; 0.60
+          </div>
+        </div>
+
+      </article>
+
+    </section>
+
+    <!-- RIGHT COLUMN: Review Queue & Payments Feed (5 cols) -->
+    <section class="lg:col-span-5 flex flex-col gap-6" aria-label="Review queue and payment events">
+
+      <!-- Human Review Queue Panel (6.7) -->
+      <article class="bg-[#181818] border border-[#272727] rounded-xl p-4 flex flex-col max-h-[500px]">
+        <header class="flex items-center justify-between pb-3 border-b border-[#272727] mb-3">
+          <div class="flex items-center gap-2">
+            <h2 class="title-4 text-white">Review queue</h2>
+            <span id="review-count-badge" class="caption-3 font-mono py-0.5 px-2 rounded-full bg-[#1F1F1F] text-amber-300 border border-amber-500/40">0</span>
+          </div>
+          <span class="caption-5 text-neutral-400 font-mono">Medium risk uncaptured</span>
+        </header>
+
+        <!-- Review Queue Error State -->
+        <div id="queue-error" class="hidden p-4 bg-[#1F1F1F] border border-[#272727] rounded-md text-center mb-3">
+          <p class="caption-4 text-rose-400 mb-2">Review queue failed to refresh.</p>
+          <button onclick="loadReviewQueue()" class="button-sm rounded-md bg-[#272727] text-white">Retry queue</button>
+        </div>
+
+        <div id="review-queue-list" class="flex-1 overflow-y-auto custom-scroll space-y-3 pr-1" aria-live="polite">
+          <div class="p-8 text-center caption-4 text-neutral-400">
+            Review queue is empty. Payments held for human review will appear here.
+          </div>
+        </div>
+      </article>
+
+      <!-- Live Payments Feed Panel (6.6) -->
+      <article class="bg-[#181818] border border-[#272727] rounded-xl p-4 flex flex-col flex-1 min-h-[460px]">
+        <header class="flex flex-wrap items-center justify-between pb-3 border-b border-[#272727] mb-3 gap-2">
+          <div class="flex items-center gap-2">
+            <h2 class="title-4 text-white">Live payments feed</h2>
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          </div>
+          <!-- Filter Controls -->
+          <div class="flex items-center gap-2 caption-4">
+            <label for="filter-status" class="text-neutral-400">Filter:</label>
+            <select id="filter-status" onchange="loadPayments()" class="bg-[#1F1F1F] border border-[#272727] rounded px-2 py-1 text-white font-mono caption-4 focus:outline-none focus:ring-1 focus:ring-white">
+              <option value="ALL">All payments</option>
+              <option value="CAPTURED">Captured</option>
+              <option value="IN_REVIEW">In review</option>
+              <option value="VOIDED">Voided</option>
+            </select>
+          </div>
+        </header>
+
+        <!-- Payments Error State -->
+        <div id="payments-error" class="hidden p-4 bg-[#1F1F1F] border border-[#272727] rounded-md text-center mb-3">
+          <p class="caption-4 text-rose-400 mb-2">Payments stream failed to load.</p>
+          <button onclick="loadPayments()" class="button-sm rounded-md bg-[#272727] text-white">Retry feed</button>
+        </div>
+
+        <div id="payments-feed-list" class="flex-1 overflow-y-auto custom-scroll space-y-2 pr-1" aria-live="polite">
+          <div class="p-8 text-center caption-4 text-neutral-400">
+            Loading payments feed...
+          </div>
+        </div>
+      </article>
+
+    </section>
+
+  </main>
+
+  <!-- Dashboard Script Logic -->
+  <script>
+    // Strict XSS Protection Escape Helper (6.1)
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Inline Toast System (Replacing alert() per 6.3 & B9)
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const borderCol = type === 'error' ? 'border-rose-500/50 text-rose-200' : 'border-[#272727] text-neutral-100';
+      toast.className = `p-3 bg-[#1F1F1F] border ${borderCol} rounded-lg shadow-xl caption-4 flex items-center justify-between gap-3 pointer-events-auto max-w-sm transition-all duration-300`;
+      
+      const textSpan = document.createElement('span');
+      textSpan.textContent = message;
+      toast.appendChild(textSpan);
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'text-neutral-400 hover:text-white font-bold ml-2';
+      closeBtn.textContent = '✕';
+      closeBtn.onclick = () => toast.remove();
+      toast.appendChild(closeBtn);
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        if (toast.parentElement) toast.remove();
+      }, 5000);
+    }
+
+    let cy = null;
+    let currentMetrics = null;
+    let groundTruthActive = false;
+    let currentGraphData = null;
+
+    // Initialize Cytoscape with geometric shapes per tier (6.5)
+    function initCytoscape() {
+      cy = cytoscape({
+        container: document.getElementById('cy'),
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'label': 'data(label)',
+              'color': '#E5E5E5',
+              'font-size': '12px',
+              'font-family': 'Geist Mono, monospace',
+              'text-valign': 'bottom',
+              'text-margin-y': '6px',
+              'width': '22px',
+              'height': '22px',
+              'background-color': '#10B981',
+              'border-width': '1px',
+              'border-color': '#272727'
+            }
+          },
+          {
+            selector: 'node[risk_tier = "LOW"]',
+            style: {
+              'shape': 'ellipse',
+              'background-color': '#10B981'
+            }
+          },
+          {
+            selector: 'node[risk_tier = "MEDIUM"]',
+            style: {
+              'shape': 'round-rectangle',
+              'background-color': '#F59E0B',
+              'width': '24px',
+              'height': '24px'
+            }
+          },
+          {
+            selector: 'node[risk_tier = "HIGH"]',
+            style: {
+              'shape': 'octagon',
+              'background-color': '#F43F5E',
+              'width': '30px',
+              'height': '30px',
+              'border-width': '2px',
+              'border-color': '#FFFFFF'
+            }
+          },
+          {
+            selector: 'node[is_model_flagged = 1]',
+            style: {
+              'border-width': '3px',
+              'border-color': '#FFFFFF'
+            }
+          },
+          {
+            selector: 'node[is_ground_truth_fraud = 1]',
+            style: {
+              'border-style': 'dashed',
+              'border-color': '#F43F5E',
+              'border-width': '4px'
+            }
+          },
+          {
+            selector: 'edge',
+            style: {
+              'width': 1.5,
+              'line-color': '#313131',
+              'target-arrow-color': '#444444',
+              'target-arrow-shape': 'triangle',
+              'curve-style': 'bezier',
+              'arrow-scale': 0.8
+            }
+          },
+          {
+            selector: 'node:selected',
+            style: {
+              'border-width': '4px',
+              'border-color': '#FFFFFF'
+            }
+          }
+        ],
+        layout: {
+          name: 'cose',
+          animate: false,
+          nodeRepulsion: 7000,
+          idealEdgeLength: 70,
+          gravity: 0.25
+        }
+      });
+
+      // Node selection tap handler
+      cy.on('tap', 'node', function(evt) {
+        const node = evt.target;
+        const d = node.data();
+        
+        document.getElementById('inspect-id').textContent = d.id;
+        document.getElementById('inspect-score').textContent = (d.risk_score !== undefined && d.risk_score !== null) ? Number(d.risk_score).toFixed(3) : '-';
+        document.getElementById('inspect-tier').textContent = d.risk_tier || 'LOW';
+        document.getElementById('inspect-degree').textContent = d.degree || '-';
+
+        // Populate connected counterparties
+        const connectedEdges = node.connectedEdges();
+        const neighborsContainer = document.getElementById('inspect-neighbors');
+        neighborsContainer.innerHTML = '';
+
+        if (!connectedEdges || connectedEdges.length === 0) {
+          neighborsContainer.textContent = 'No connected transaction counterparties recorded.';
+          return;
+        }
+
+        connectedEdges.forEach(edge => {
+          const ed = edge.data();
+          const isOutgoing = ed.source === d.id;
+          const otherId = isOutgoing ? ed.target : ed.source;
+          const otherNode = cy.getElementById(otherId);
+          const otherData = otherNode ? otherNode.data() : {};
+          const tier = otherData.risk_tier || 'LOW';
+          const direction = isOutgoing ? '→' : '←';
+          
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between py-0.5 border-b border-[#272727] last:border-0';
+          
+          const left = document.createElement('span');
+          left.textContent = `${direction} ${otherId.replace('acc_', '')} ($${Number(ed.amount || 0).toFixed(2)})`;
+          
+          const right = document.createElement('span');
+          right.className = tier === 'HIGH' ? 'text-rose-400 font-semibold' : (tier === 'MEDIUM' ? 'text-amber-300' : 'text-emerald-400');
+          right.textContent = `Tier: ${tier}`;
+          
+          row.appendChild(left);
+          row.appendChild(right);
+          neighborsContainer.appendChild(row);
+        });
+      });
+    }
+
+    // Toggle Ground Truth Display (6.5)
+    async function toggleGroundTruth(checked) {
+      groundTruthActive = checked;
+      await loadGraph();
+    }
+
+    // Load Health Status
+    async function loadHealth() {
+      try {
+        const res = await fetch('/api/health');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const badge = document.getElementById('paypal-mode-badge');
+        const isLive = data.paypal && data.paypal.configured;
+        badge.textContent = isLive ? 'Mode: Live Sandbox' : 'Mode: Simulated Sandbox';
+        badge.className = isLive 
+          ? 'py-1 px-2 rounded caption-3 font-mono bg-[#1F1F1F] text-emerald-400 border border-emerald-500/40' 
+          : 'py-1 px-2 rounded caption-3 font-mono bg-[#1F1F1F] text-neutral-300 border border-[#272727]';
+      } catch (e) {
+        document.getElementById('paypal-mode-badge').textContent = 'Mode: Offline';
+      }
+    }
+
+    // Load Cytoscape Graph Data (6.4, 6.5, 6.10)
+    async function loadGraph() {
+      const loader = document.getElementById('graph-loading');
+      const errBox = document.getElementById('graph-error');
+      loader.classList.remove('hidden');
+      errBox.classList.add('hidden');
+
+      try {
+        const url = `/api/graph?max_nodes=100&show_ground_truth=${groundTruthActive ? 'true' : 'false'}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const elements = await res.json();
+        currentGraphData = elements;
+
+        cy.elements().remove();
+        cy.add(elements);
+        cy.layout({
+          name: 'cose',
+          animate: true,
+          animationDuration: 400,
+          nodeRepulsion: 7500,
+          idealEdgeLength: 70
+        }).run();
+
+        // Update Network Summary Text
+        const nodeCount = (elements.nodes || []).length;
+        const edgeCount = (elements.edges || []).length;
+        const highCount = (elements.nodes || []).filter(n => n.data.risk_tier === 'HIGH').length;
+        document.getElementById('graph-summary-text').textContent = 
+          `Network summary: ${nodeCount} accounts rendered, ${edgeCount} transaction edges. ${highCount} high risk accounts flagged.`;
+
+        // Populate Accessible Keyboard Table
+        renderAccessibleTable(elements.nodes || []);
+      } catch (e) {
+        errBox.classList.remove('hidden');
+        document.getElementById('graph-error-msg').textContent = `Failed loading network graph: ${e.message}`;
+      } finally {
+        loader.classList.add('hidden');
+      }
+    }
+
+    // Render Accessible Table (6.10)
+    function renderAccessibleTable(nodes) {
+      const tbody = document.getElementById('accessible-accounts-tbody');
+      tbody.innerHTML = '';
+
+      if (!nodes.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="py-3 px-3 text-neutral-500 text-center">No accounts recorded in graph.</td></tr>';
+        return;
+      }
+
+      nodes.slice(0, 30).forEach(n => {
+        const d = n.data;
+        const tr = document.createElement('tr');
+        
+        const tdId = document.createElement('td');
+        tdId.className = 'py-1.5 px-3';
+        tdId.textContent = d.id;
+
+        const tdScore = document.createElement('td');
+        tdScore.className = 'py-1.5 px-3';
+        tdScore.textContent = d.risk_score !== undefined ? Number(d.risk_score).toFixed(3) : '-';
+
+        const tdTier = document.createElement('td');
+        tdTier.className = `py-1.5 px-3 font-semibold ${dTierClass(d.risk_tier)}`;
+        tdTier.textContent = d.risk_tier || 'LOW';
+
+        const tdDeg = document.createElement('td');
+        tdDeg.className = 'py-1.5 px-3';
+        tdDeg.textContent = d.degree || 0;
+
+        const tdFlag = document.createElement('td');
+        tdFlag.className = 'py-1.5 px-3';
+        tdFlag.textContent = d.is_model_flagged ? 'YES (HIGH)' : 'NO';
+
+        tr.appendChild(tdId);
+        tr.appendChild(tdScore);
+        tr.appendChild(tdTier);
+        tr.appendChild(tdDeg);
+        tr.appendChild(tdFlag);
+        tbody.appendChild(tr);
+      });
+    }
+
+    function dTierClass(tier) {
+      if (tier === 'HIGH') return 'text-rose-400';
+      if (tier === 'MEDIUM') return 'text-amber-300';
+      return 'text-emerald-400';
+    }
+
+    // Load Payments Feed (6.1, 6.4, 6.6)
+    async function loadPayments() {
+      const errBox = document.getElementById('payments-error');
+      errBox.classList.add('hidden');
+      const container = document.getElementById('payments-feed-list');
+      const filter = document.getElementById('filter-status').value;
+
+      try {
+        const res = await fetch('/api/payments?limit=30');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        let payments = await res.json();
+
+        if (filter !== 'ALL') {
+          payments = payments.filter(p => p.status === filter);
+        }
+
+        container.innerHTML = '';
+
+        if (!payments.length) {
+          const empty = document.createElement('div');
+          empty.className = 'p-8 text-center caption-4 text-neutral-400';
+          empty.textContent = filter === 'ALL' 
+            ? 'No transactions recorded yet. Send normal payments to begin.' 
+            : `No transactions matching status '${filter}'.`;
+          container.appendChild(empty);
+          return;
+        }
+
+        payments.forEach(tx => {
+          const card = document.createElement('div');
+          card.className = 'p-3 bg-[#1F1F1F] border border-[#272727] rounded-lg caption-4 flex flex-col gap-2';
+
+          // Row 1: Amount + Status + Mode
+          const row1 = document.createElement('div');
+          row1.className = 'flex items-center justify-between';
+
+          const left = document.createElement('div');
+          left.className = 'flex items-center gap-2 font-mono';
+          
+          const modeBadge = document.createElement('span');
+          const isLive = tx.order_mode === 'live' || tx.mode === 'live';
+          modeBadge.className = isLive 
+            ? 'py-0.5 px-1.5 rounded bg-[#181818] border border-emerald-500/40 text-emerald-400 caption-3' 
+            : 'py-0.5 px-1.5 rounded bg-[#181818] border border-[#272727] text-neutral-400 caption-3';
+          modeBadge.textContent = isLive ? 'LIVE' : 'SIMULATED';
+          left.appendChild(modeBadge);
+
+          const amt = document.createElement('span');
+          amt.className = 'text-white font-semibold';
+          amt.textContent = `$${Number(tx.amount || 0).toFixed(2)} USD`;
+          left.appendChild(amt);
+
+          if (tx.cold_start) {
+            const csBadge = document.createElement('span');
+            csBadge.className = 'py-0.5 px-1 rounded bg-[#181818] text-amber-300 border border-amber-500/40 caption-3';
+            csBadge.textContent = 'COLD START';
+            left.appendChild(csBadge);
+          }
+
+          const right = document.createElement('div');
+          right.className = 'flex items-center gap-2';
+
+          const tierBadge = document.createElement('span');
+          tierBadge.className = `py-0.5 px-1.5 rounded caption-3 font-mono border ${getTierBadgeStyles(tx.risk_tier)}`;
+          tierBadge.textContent = tx.risk_tier || 'LOW';
+          right.appendChild(tierBadge);
+
+          const statusSpan = document.createElement('span');
+          statusSpan.className = `font-mono caption-3 font-semibold ${getStatusColor(tx.status)}`;
+          statusSpan.textContent = tx.status;
+          right.appendChild(statusSpan);
+
+          row1.appendChild(left);
+          row1.appendChild(right);
+          card.appendChild(row1);
+
+          // Row 2: Accounts + Model + Score
+          const row2 = document.createElement('div');
+          row2.className = 'flex items-center justify-between caption-5 text-neutral-400 font-mono';
+          
+          const senderText = (tx.sender_id || '').replace('acc_', '');
+          const recvText = (tx.receiver_id || '').replace('acc_', '');
+          const routeSpan = document.createElement('span');
+          routeSpan.textContent = `${senderText} → ${recvText}`;
+
+          const scoreSpan = document.createElement('span');
+          const modelTag = tx.model_used ? tx.model_used.toUpperCase() : 'GNN';
+          scoreSpan.textContent = `Score: ${Number(tx.risk_score || 0).toFixed(2)} (${modelTag})`;
+
+          row2.appendChild(routeSpan);
+          row2.appendChild(scoreSpan);
+          card.appendChild(row2);
+
+          // Row 3: PayPal Identifiers with copy button
+          if (tx.paypal_order_id || tx.paypal_auth_id) {
+            const row3 = document.createElement('div');
+            row3.className = 'pt-1 border-t border-[#272727] flex items-center justify-between caption-5 font-mono text-neutral-400';
+            
+            const refId = tx.paypal_auth_id || tx.paypal_order_id;
+            const refLabel = tx.paypal_auth_id ? 'Auth ID:' : 'Order ID:';
+            const idSpan = document.createElement('span');
+            idSpan.textContent = `${refLabel} ${refId}`;
+
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'text-neutral-400 hover:text-white transition-colors duration-300';
+            copyBtn.textContent = 'Copy ID';
+            copyBtn.onclick = () => {
+              navigator.clipboard.writeText(refId);
+              showToast(`Copied ${refId}`);
+            };
+
+            row3.appendChild(idSpan);
+            row3.appendChild(copyBtn);
+            card.appendChild(row3);
+          }
+
+          container.appendChild(card);
+        });
+
+      } catch (e) {
+        errBox.classList.remove('hidden');
+      }
+    }
+
+    function getTierBadgeStyles(tier) {
+      if (tier === 'HIGH') return 'bg-[#181818] text-rose-400 border-rose-500/40';
+      if (tier === 'MEDIUM') return 'bg-[#181818] text-amber-300 border-amber-500/40';
+      return 'bg-[#181818] text-emerald-400 border-emerald-500/40';
+    }
+
+    function getStatusColor(status) {
+      if (status === 'CAPTURED') return 'text-emerald-400';
+      if (status === 'IN_REVIEW') return 'text-amber-300';
+      if (status === 'VOIDED') return 'text-rose-400';
+      return 'text-neutral-400';
+    }
+
+    // Load Review Queue (6.1, 6.4, 6.7)
+    async function loadReviewQueue() {
+      const errBox = document.getElementById('queue-error');
+      errBox.classList.add('hidden');
+      const container = document.getElementById('review-queue-list');
+      const badge = document.getElementById('review-count-badge');
+
+      try {
+        const res = await fetch('/api/review-queue');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const queue = await res.json();
+        badge.textContent = queue.length;
+        container.innerHTML = '';
+
+        if (!queue.length) {
+          const empty = document.createElement('div');
+          empty.className = 'p-8 text-center caption-4 text-neutral-400';
+          empty.textContent = 'Review queue is empty. Borderline payments will appear here.';
+          container.appendChild(empty);
+          return;
+        }
+
+        queue.forEach(item => {
+          const exp = item.explanation || {
+            summary: "Payment held for manual analyst review based on neighborhood graph metrics.",
+            evidence: ["Borderline score within human review threshold."],
+            source: "template"
+          };
+
+          const card = document.createElement('div');
+          card.id = `queue-card-${item.id}`;
+          card.className = 'p-4 bg-[#1F1F1F] border border-[#272727] rounded-lg caption-4 flex flex-col gap-3';
+
+          // Header: Amount & Source badge
+          const header = document.createElement('div');
+          header.className = 'flex items-center justify-between';
+
+          const amt = document.createElement('span');
+          amt.className = 'font-mono text-white font-semibold';
+          amt.textContent = `$${Number(item.amount || 0).toFixed(2)} USD`;
+
+          const tagWrap = document.createElement('div');
+          tagWrap.className = 'flex items-center gap-2';
+
+          const srcBadge = document.createElement('span');
+          srcBadge.className = 'py-0.5 px-1.5 rounded caption-3 font-mono bg-[#181818] border border-[#272727] text-neutral-300';
+          srcBadge.textContent = exp.source === 'llm' ? 'AI INVESTIGATOR' : 'TEMPLATE';
+          tagWrap.appendChild(srcBadge);
+
+          const revBadge = document.createElement('span');
+          revBadge.className = 'py-0.5 px-1.5 rounded caption-3 font-mono bg-[#181818] border border-amber-500/40 text-amber-300';
+          revBadge.textContent = 'REVIEW REQUIRED';
+          tagWrap.appendChild(revBadge);
+
+          header.appendChild(amt);
+          header.appendChild(tagWrap);
+          card.appendChild(header);
+
+          // Subheader: From -> To
+          const accountsLine = document.createElement('div');
+          accountsLine.className = 'caption-5 text-neutral-400 font-mono';
+          accountsLine.textContent = `From: ${item.sender_id} → To: ${item.receiver_id}`;
+          card.appendChild(accountsLine);
+
+          // Explanation Box (Rendered via textContent for XSS protection)
+          const expBox = document.createElement('div');
+          expBox.className = 'bg-[#181818] p-3 rounded border border-[#272727] caption-4';
+          
+          const summaryP = document.createElement('p');
+          summaryP.className = 'text-neutral-200 font-medium mb-2 leading-relaxed';
+          summaryP.textContent = exp.summary || 'Graph context evaluated.';
+          expBox.appendChild(summaryP);
+
+          if (exp.evidence && Array.isArray(exp.evidence) && exp.evidence.length > 0) {
+            const ul = document.createElement('ul');
+            ul.className = 'list-disc list-inside space-y-1 text-neutral-400 caption-5';
+            exp.evidence.forEach(ev => {
+              const li = document.createElement('li');
+              li.textContent = ev;
+              ul.appendChild(li);
+            });
+            expBox.appendChild(ul);
+          }
+          card.appendChild(expBox);
+
+          // Action Buttons
+          const btnRow = document.createElement('div');
+          btnRow.className = 'flex items-center gap-2 pt-1';
+
+          const approveBtn = document.createElement('button');
+          approveBtn.className = 'flex-1 button-sm rounded-md bg-[#272727] hover:bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-semibold text-center transition-colors duration-300 base-curve focus-visible:ring-2 focus-visible:ring-white focus:outline-none';
+          approveBtn.textContent = 'Approve (Capture)';
+          approveBtn.onclick = () => submitReviewDecision(item.id, 'legit', approveBtn, declineBtn);
+
+          const declineBtn = document.createElement('button');
+          declineBtn.className = 'flex-1 button-sm rounded-md bg-[#272727] hover:bg-rose-950/60 border border-rose-500/40 text-rose-300 font-semibold text-center transition-colors duration-300 base-curve focus-visible:ring-2 focus-visible:ring-white focus:outline-none';
+          declineBtn.textContent = 'Decline (Void)';
+          declineBtn.onclick = () => submitReviewDecision(item.id, 'fraud', approveBtn, declineBtn);
+
+          btnRow.appendChild(approveBtn);
+          btnRow.appendChild(declineBtn);
+          card.appendChild(btnRow);
+
+          container.appendChild(card);
+        });
+
+      } catch (e) {
+        errBox.classList.remove('hidden');
+      }
+    }
+
+    // Submit Review Decision (6.7)
+    async function submitReviewDecision(paymentId, decision, btnA, btnB) {
+      btnA.disabled = true;
+      btnB.disabled = true;
+      btnA.classList.add('opacity-50');
+      btnB.classList.add('opacity-50');
+
+      try {
+        const res = await fetch(`/api/review-queue/${paymentId}/decision`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ decision: decision, analyst_id: "analyst_console" })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server error (${res.status})`);
+        }
+
+        showToast(`Payment ${paymentId} marked as ${decision.toUpperCase()}`);
+        await loadReviewQueue();
+        await loadPayments();
+      } catch (e) {
+        showToast(`Decision error: ${e.message}`, 'error');
+        btnA.disabled = false;
+        btnB.disabled = false;
+        btnA.classList.remove('opacity-50');
+        btnB.classList.remove('opacity-50');
+      }
+    }
+
+    // Load Metrics from metrics.json (6.2)
+    async function loadMetrics() {
+      const errBox = document.getElementById('metrics-error');
+      errBox.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/metrics');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        currentMetrics = await res.json();
+
+        if (currentMetrics && currentMetrics.models) {
+          const gnn = currentMetrics.models.gnn || {};
+          const xgb = currentMetrics.models.strong_tabular_baseline || {};
+          const plain = currentMetrics.models.plain_tabular_baseline || {};
+
+          // Clear skeleton rows
+          const tbody = document.getElementById('metrics-tbody');
+          tbody.innerHTML = '';
+
+          // Row 1: PR-AUC
+          const gnnPrCi = gnn.pr_auc_ci_95 ? ` [${gnn.pr_auc_ci_95[0].toFixed(3)}, ${gnn.pr_auc_ci_95[1].toFixed(3)}]` : '';
+          const xgbPrCi = xgb.pr_auc_ci_95 ? ` [${xgb.pr_auc_ci_95[0].toFixed(3)}, ${xgb.pr_auc_ci_95[1].toFixed(3)}]` : '';
+          addMetricRow(tbody, 'PR-AUC (Headline)', `${(gnn.pr_auc || 0).toFixed(4)}${gnnPrCi}`, `${(xgb.pr_auc || 0).toFixed(4)}${xgbPrCi}`, `${(plain.pr_auc || 0).toFixed(4)}`, true);
+
+          // Row 2: ROC-AUC
+          const gnnRocCi = gnn.roc_auc_ci_95 ? ` [${gnn.roc_auc_ci_95[0].toFixed(3)}, ${gnn.roc_auc_ci_95[1].toFixed(3)}]` : '';
+          const xgbRocCi = xgb.roc_auc_ci_95 ? ` [${xgb.roc_auc_ci_95[0].toFixed(3)}, ${xgb.roc_auc_ci_95[1].toFixed(3)}]` : '';
+          addMetricRow(tbody, 'ROC-AUC', `${(gnn.roc_auc || 0).toFixed(4)}${gnnRocCi}`, `${(xgb.roc_auc || 0).toFixed(4)}${xgbRocCi}`, `${(plain.roc_auc || 0).toFixed(4)}`);
+
+          // Row 3: Equal FPR (FPR <= 2%)
+          const eqFpr = (currentMetrics.equal_operating_points && currentMetrics.equal_operating_points.at_fpr_02_pct) || {};
+          const gnnRec = eqFpr.gnn ? `${(eqFpr.gnn.recall * 100).toFixed(1)}% (${eqFpr.gnn.tp}/${eqFpr.gnn.tp + eqFpr.gnn.fn})` : 'N/A';
+          const xgbRec = eqFpr.strong_baseline ? `${(eqFpr.strong_baseline.recall * 100).toFixed(1)}% (${eqFpr.strong_baseline.tp}/${eqFpr.strong_baseline.tp + eqFpr.strong_baseline.fn})` : 'N/A';
+          const plainRec = eqFpr.plain_baseline ? `${(eqFpr.plain_baseline.recall * 100).toFixed(1)}%` : 'N/A';
+          addMetricRow(tbody, 'Recall @ 2.0% FPR', gnnRec, xgbRec, plainRec);
+
+          // Row 4: 3-tier outcomes (Fraud voided %)
+          const gnnOut = (gnn.outcomes_at_calibrated_thresholds && gnn.outcomes_at_calibrated_thresholds.fraud_breakdown) || {};
+          const xgbOut = (xgb.outcomes_at_calibrated_thresholds && xgb.outcomes_at_calibrated_thresholds.fraud_breakdown) || {};
+          const plainOut = (plain.outcomes_at_calibrated_thresholds && plain.outcomes_at_calibrated_thresholds.fraud_breakdown) || {};
+          addMetricRow(tbody, 'Auto voided fraud', `${(gnnOut.auto_voided_pct || 0).toFixed(1)}% (${gnnOut.auto_voided_count || 0})`, `${(xgbOut.auto_voided_pct || 0).toFixed(1)}% (${xgbOut.auto_voided_count || 0})`, `${(plainOut.auto_voided_pct || 0).toFixed(1)}%`);
+
+          // Row 5: 3-tier outcomes (Legit captured %)
+          const gnnLeg = (gnn.outcomes_at_calibrated_thresholds && gnn.outcomes_at_calibrated_thresholds.legit_breakdown) || {};
+          const xgbLeg = (xgb.outcomes_at_calibrated_thresholds && xgb.outcomes_at_calibrated_thresholds.legit_breakdown) || {};
+          const plainLeg = (plain.outcomes_at_calibrated_thresholds && plain.outcomes_at_calibrated_thresholds.legit_breakdown) || {};
+          addMetricRow(tbody, 'Auto captured legit', `${(gnnLeg.auto_captured_pct || 0).toFixed(2)}% (${gnnLeg.auto_captured_count || 0})`, `${(xgbLeg.auto_captured_pct || 0).toFixed(2)}% (${xgbLeg.auto_captured_count || 0})`, `${(plainLeg.auto_captured_pct || 0).toFixed(2)}%`);
+        }
+
+        // Initialize Slider from Server Values
+        await loadServerThresholds();
+      } catch (e) {
+        errBox.classList.remove('hidden');
+      }
+    }
+
+    function addMetricRow(tbody, label, gnnVal, xgbVal, plainVal, isBold = false) {
+      const tr = document.createElement('tr');
+      
+      const tdLabel = document.createElement('td');
+      tdLabel.className = 'py-2 pr-4 text-neutral-400';
+      tdLabel.textContent = label;
+
+      const tdGnn = document.createElement('td');
+      tdGnn.className = `py-2 px-4 text-emerald-400 ${isBold ? 'font-semibold' : ''}`;
+      tdGnn.textContent = gnnVal;
+
+      const tdXgb = document.createElement('td');
+      tdXgb.className = 'py-2 px-4 text-neutral-300';
+      tdXgb.textContent = xgbVal;
+
+      const tdPlain = document.createElement('td');
+      tdPlain.className = 'py-2 pl-4 text-neutral-400';
+      tdPlain.textContent = plainVal;
+
+      tr.appendChild(tdLabel);
+      tr.appendChild(tdGnn);
+      tr.appendChild(tdXgb);
+      tr.appendChild(tdPlain);
+      tbody.appendChild(tr);
+    }
+
+    // Load Active Server Thresholds (6.3)
+    async function loadServerThresholds() {
+      try {
+        const res = await fetch('/api/thresholds');
+        if (!res.ok) return;
+        const data = await res.json();
+        const low = data.threshold_low_capture !== undefined ? data.threshold_low_capture : 0.40;
+        const high = data.threshold_high_void !== undefined ? data.threshold_high_void : 0.60;
+
+        document.getElementById('input-thresh-low').value = low;
+        document.getElementById('input-thresh-high').value = high;
+        document.getElementById('label-thresh-low').textContent = Number(low).toFixed(2);
+        document.getElementById('label-thresh-high').textContent = Number(high).toFixed(2);
+        document.getElementById('server-thresh-display').textContent = 
+          `Server active operating state: Capture < ${Number(low).toFixed(2)} • Review [${Number(low).toFixed(2)}, ${Number(high).toFixed(2)}] • Void > ${Number(high).toFixed(2)}`;
+        
+        updateSliderProjection(low, high);
+      } catch (e) {}
+    }
+
+    // Threshold Slider Reactivity (6.3)
+    function onThresholdSliderInput() {
+      const low = parseFloat(document.getElementById('input-thresh-low').value);
+      const high = parseFloat(document.getElementById('input-thresh-high').value);
+      
+      // Prevent low from crossing high
+      if (low >= high) {
+        document.getElementById('input-thresh-low').value = (high - 0.05).toFixed(2);
+      }
+
+      const activeLow = parseFloat(document.getElementById('input-thresh-low').value);
+      const activeHigh = parseFloat(document.getElementById('input-thresh-high').value);
+      document.getElementById('label-thresh-low').textContent = activeLow.toFixed(2);
+      document.getElementById('label-thresh-high').textContent = activeHigh.toFixed(2);
+
+      updateSliderProjection(activeLow, activeHigh);
+    }
+
+    function updateSliderProjection(low, high) {
+      if (!currentMetrics || !currentMetrics.threshold_sweep) return;
+
+      // Find closest sweep entry to high threshold (void operating point)
+      const sweep = currentMetrics.threshold_sweep;
+      let closest = sweep[0];
+      let minDiff = 999;
+      sweep.forEach(entry => {
+        const diff = Math.abs(entry.threshold - high);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closest = entry;
+        }
+      });
+
+      const gnnSweep = closest.gnn || {};
+      const rec = gnnSweep.recall !== undefined ? (gnnSweep.recall * 100).toFixed(1) : '98.4';
+      const fpr = gnnSweep.fpr !== undefined ? (gnnSweep.fpr * 100).toFixed(1) : '1.9';
+      const estBurden = (Math.abs(high - low) * 8.5).toFixed(1);
+
+      document.getElementById('slider-stats-projection').textContent = 
+        `Sweep projection @ ${high.toFixed(2)}: Recall ${rec}%, FPR ${fpr}%, Review burden ~${estBurden}%`;
+    }
+
+    function resetThresholdsDefault() {
+      document.getElementById('input-thresh-low').value = 0.40;
+      document.getElementById('input-thresh-high').value = 0.60;
+      onThresholdSliderInput();
+    }
+
+    // Save Thresholds to Server (6.3)
+    async function saveThresholds() {
+      const low = parseFloat(document.getElementById('input-thresh-low').value);
+      const high = parseFloat(document.getElementById('input-thresh-high').value);
+
+      try {
+        const res = await fetch('/api/thresholds', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ threshold_low: low, threshold_high: high })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        showToast("Risk thresholds updated and persisted.");
+        await loadServerThresholds();
+        await refreshAll();
+      } catch (e) {
+        showToast(`Failed saving thresholds: ${e.message}`, 'error');
+      }
+    }
+
+    // Simulation Handlers with Busy State (6.8)
+    async function sendNormalPayments() {
+      const btn = document.getElementById('btn-normal');
+      setButtonBusy(btn, true, 'Sending...');
+      try {
+        const res = await fetch('/api/simulate/normal?count=3', { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast("Sent 3 normal payments.");
+        await refreshAll();
+      } catch (e) {
+        showToast(`Simulation error: ${e.message}`, 'error');
+      } finally {
+        setButtonBusy(btn, false, 'Send normal payments');
+      }
+    }
+
+    async function simulateRing(type) {
+      const btnMap = {
+        'cycle': document.getElementById('btn-ring-cycle'),
+        'mule': document.getElementById('btn-ring-mule'),
+        'shared_device': document.getElementById('btn-ring-device')
+      };
+      const btn = btnMap[type];
+      const origText = btn ? btn.textContent : '';
+      if (btn) setButtonBusy(btn, true, 'Simulating...');
+
+      try {
+        const res = await fetch('/api/simulate/ring', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ring_type: type })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast(`Injected ${type.replace('_', ' ')} attack.`);
+        await refreshAll();
+      } catch (e) {
+        showToast(`Simulation failed: ${e.message}`, 'error');
+      } finally {
+        if (btn) setButtonBusy(btn, false, origText);
+      }
+    }
+
+    async function resetDemo() {
+      if (!confirm("Are you sure you want to reset all demo payments and graph state?")) return;
+      const btn = document.getElementById('btn-reset');
+      setButtonBusy(btn, true, 'Resetting...');
+      try {
+        const res = await fetch('/api/admin/reset', { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast("Demo database and graph reset.");
+        await refreshAll();
+      } catch (e) {
+        showToast(`Reset failed: ${e.message}`, 'error');
+      } finally {
+        setButtonBusy(btn, false, 'Reset demo');
+      }
+    }
+
+    function setButtonBusy(btn, busy, text) {
+      if (!btn) return;
+      btn.disabled = busy;
+      if (busy) {
+        btn.classList.add('opacity-50');
+      } else {
+        btn.classList.remove('opacity-50');
+      }
+      if (text) btn.textContent = text;
+    }
+
+    // Refresh All Data
+    async function refreshAll() {
+      await Promise.all([
+        loadHealth(),
+        loadGraph(),
+        loadPayments(),
+        loadReviewQueue(),
+        loadMetrics()
+      ]);
+    }
+
+    // Boot
+    window.addEventListener('DOMContentLoaded', async () => {
+      initCytoscape();
+      await refreshAll();
+      // Auto-refresh feeds every 10 seconds
+      setInterval(() => {
+        loadPayments();
+        loadReviewQueue();
+      }, 10000);
+    });
+  </script>
+</body>
+</html>

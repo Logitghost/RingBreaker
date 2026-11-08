@@ -1,0 +1,26 @@
+============================================================================
+           RINGBREAKER SINGLE-FEATURE INTEGRITY AUDIT (C6)
+============================================================================
+Total Evaluated Accounts: 5,904 (5,000 legit, 904 fraud)
+Max Permitted Single-Feature ROC-AUC: < 0.95
+----------------------------------------------------------------------------
+Feature Name                     | Directional AUC  | Max Power    | Status
+----------------------------------------------------------------------------
+in_degree                        | 0.3067           | 0.6933       | PASS (< 0.95)
+out_degree                       | 0.4923           | 0.5077       | PASS (< 0.95)
+total_degree                     | 0.3353           | 0.6647       | PASS (< 0.95)
+in_amount_sum                    | 0.4124           | 0.5876       | PASS (< 0.95)
+in_amount_mean                   | 0.5171           | 0.5171       | PASS (< 0.95)
+in_amount_max                    | 0.4683           | 0.5317       | PASS (< 0.95)
+out_amount_sum                   | 0.5510           | 0.5510       | PASS (< 0.95)
+out_amount_mean                  | 0.6347           | 0.6347       | PASS (< 0.95)
+out_amount_max                   | 0.6112           | 0.6112       | PASS (< 0.95)
+in_out_ratio                     | 0.6189           | 0.6189       | PASS (< 0.95)
+net_flow                         | 0.4421           | 0.5579       | PASS (< 0.95)
+account_age_hours                | 0.2700           | 0.7300       | PASS (< 0.95)
+avg_time_between_tx_hours        | 0.5370           | 0.5370       | PASS (< 0.95)
+shared_device_count              | 0.5948           | 0.5948       | PASS (< 0.95)
+unique_counterparties            | 0.3234           | 0.6766       | PASS (< 0.95)
+============================================================================
+[PASS] AUDIT PASSED: All single features have ROC-AUC < 0.95. No trivial shortcut.
+============================================================================

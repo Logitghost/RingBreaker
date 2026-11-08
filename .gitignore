@@ -1,0 +1,57 @@
+# ============================================================
+# RingBreaker .gitignore
+# ============================================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+.venv/Scripts/
+.venv/Lib/
+.venv/Lib64/
+.venv/Include/
+.venv/share/
+pyvenv.cfg
+
+# --- Credentials & secrets ---
+.env
+.env.local
+*.env
+
+# --- Databases ---
+*.db
+*.sqlite3
+
+# --- Large binary data (raw graph, edge arrays) ---
+data/graph.pkl
+data/graph_edges.npz
+data/device_mapping.json
+
+# --- ML artifacts: keep weights + metadata, ignore nothing ---
+# (ml/artifacts/*.pt and ml/artifacts/*.json are tracked)
+
+# --- OS / IDE ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Testing ---
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Misc ---
+*.exe
+zip/
+zip.zip
+RINGBREAKER_ANTIGRAVITY_PROMPT.md
+RINGBREAKER_FIX_PASS_PROMPT.md

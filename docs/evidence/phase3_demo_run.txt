@@ -1,0 +1,50 @@
+======================================================================================
+               RINGBREAKER PHASE 3 LIVE SCORER DEMONSTRATION RUN
+======================================================================================
+Operating Thresholds: Low (Auto-Capture) < 0.400 | High (Auto-Void) >= 0.600
+--------------------------------------------------------------------------------------
+Payment ID       | Traffic Type     | Score   | Tier     | Model   | Cold  | Status
+--------------------------------------------------------------------------------------
+tx_norm_00       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_01       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_02       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_03       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_04       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_05       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_06       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_07       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_08       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_09       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_10       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_11       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_12       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_13       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_14       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_15       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_16       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_17       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_18       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_norm_19       | Normal P2P       | 0.001   | LOW      | gnn     | NO    | CAPTURED
+tx_cold_test_01  | Unseen Account   | 0.023   | LOW      | gnn     | YES   | CAPTURED
+--------------------------------------------------------------------------------------
+Fraud Scenario 1: Circular Flow Ring Execution (Money moves A -> B -> C -> A)
+tx_demo_cyc_0    | Circular Hop 1   | 0.001   | LOW      | gnn     | YES   | CAPTURED
+tx_demo_cyc_1    | Circular Hop 2   | 0.011   | LOW      | gnn     | YES   | CAPTURED
+tx_demo_cyc_2    | Circular Hop 3   | 0.001   | LOW      | gnn     | NO    | CAPTURED
+--------------------------------------------------------------------------------------
+Fraud Scenario 2: Fan-in Mule Funnel (Many senders aggregate into mule hub -> cashout)
+tx_demo_mule_in_0 | Mule Inflow 1    | 0.003   | LOW      | gnn     | YES   | CAPTURED
+tx_demo_mule_in_1 | Mule Inflow 2    | 0.003   | LOW      | gnn     | YES   | CAPTURED
+tx_demo_mule_in_2 | Mule Inflow 3    | 0.002   | LOW      | gnn     | YES   | CAPTURED
+tx_demo_mule_in_3 | Mule Inflow 4    | 0.002   | LOW      | gnn     | YES   | CAPTURED
+tx_demo_mule_in_4 | Mule Inflow 5    | 0.002   | LOW      | gnn     | YES   | CAPTURED
+tx_demo_mule_out | Mule Cashout     | 0.999   | HIGH     | gnn     | YES   | VOIDED
+--------------------------------------------------------------------------------------
+Fraud Scenario 3: Shared Device Farm (Multiple accounts operating from identical device fingerprint)
+tx_demo_farm_0   | Device Farm 1    | 0.003   | LOW      | gnn     | YES   | CAPTURED
+tx_demo_farm_1   | Device Farm 2    | 0.964   | HIGH     | gnn     | YES   | VOIDED
+tx_demo_farm_2   | Device Farm 3    | 0.988   | HIGH     | gnn     | YES   | VOIDED
+======================================================================================
+Normal Payments Auto-Capture Rate: 20/20 (100.0%)
+Cold Start Unseen Account Handled: YES (cold_start=True)
+======================================================================================
