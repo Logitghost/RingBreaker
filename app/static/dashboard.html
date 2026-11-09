@@ -94,6 +94,57 @@
       height: 500px;
       background-color: #000000;
     }
+    /* ---- Ring pulse animation ---- */
+    @keyframes ring-pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(244,63,94,0.7); }
+      60%  { box-shadow: 0 0 0 10px rgba(244,63,94,0); }
+      100% { box-shadow: 0 0 0 0  rgba(244,63,94,0); }
+    }
+    @keyframes slide-in-right {
+      from { opacity: 0; transform: translateX(20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .anim-slide-in {
+      animation: slide-in-right 320ms cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .anim-fade-up {
+      animation: fade-up 280ms cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    /* Reset confirmation modal */
+    #reset-modal-overlay {
+      transition: opacity 200ms cubic-bezier(0.22,1,0.36,1);
+    }
+    #reset-modal-box {
+      transition: transform 240ms cubic-bezier(0.22,1,0.36,1), opacity 240ms cubic-bezier(0.22,1,0.36,1);
+    }
+
+    /* Live stats bar pill */
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      line-height: 1rem;
+      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: #1F1F1F;
+      border: 1px solid #272727;
+      font-family: 'Geist Mono', monospace;
+      color: #d4d4d4;
+    }
+    .stat-pill .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #313131;
+      flex-shrink: 0;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, ::before, ::after {
         animation-duration: 0.01ms !important;
@@ -113,6 +164,22 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
 
+  <!-- Reset Confirmation Modal -->
+  <div id="reset-modal-overlay" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="reset-modal-title">
+    <div id="reset-modal-box" class="bg-[#181818] border border-[#272727] rounded-xl p-6 max-w-sm w-full flex flex-col gap-4 shadow-2xl">
+      <h2 id="reset-modal-title" class="title-4 text-white">Reset demo state?</h2>
+      <p class="caption-4 text-neutral-400">This clears all simulated payments, the review queue, and resets the graph to its training state. The GNN model is not affected.</p>
+      <div class="flex items-center gap-3 pt-1">
+        <button id="reset-modal-confirm" class="flex-1 button-sm rounded-md bg-rose-950/60 hover:bg-rose-900/60 border border-rose-500/40 text-rose-300 font-semibold transition-colors duration-300 base-curve focus-visible:ring-2 focus-visible:ring-white focus:outline-none">
+          Yes, reset
+        </button>
+        <button id="reset-modal-cancel" class="flex-1 button-sm rounded-md bg-[#272727] hover:bg-[#313131] border border-[#272727] text-neutral-300 transition-colors duration-300 base-curve focus-visible:ring-2 focus-visible:ring-white focus:outline-none">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Top Limitations Banner -->
   <aside class="bg-[#181818] border-b border-[#272727] px-4 py-2 caption-4 text-neutral-300 flex flex-wrap items-center justify-between gap-2" aria-label="Evaluation disclaimer">
     <div class="flex items-center gap-2">
@@ -127,6 +194,29 @@
       <a href="/docs" target="_blank" rel="noopener" class="text-neutral-400 hover:text-white transition-colors duration-300 base-curve">API docs</a>
     </div>
   </aside>
+
+  <!-- Live Stats Bar -->
+  <div class="bg-[#0A0A0A] border-b border-[#1F1F1F] px-6 py-2 flex flex-wrap items-center gap-3" aria-label="Live statistics" role="status" aria-live="polite">
+    <span class="caption-5 text-neutral-500 font-mono uppercase tracking-widest mr-1">Live</span>
+    <div class="stat-pill" id="stat-total">
+      <span class="dot"></span><span id="stat-total-val">— txns</span>
+    </div>
+    <div class="stat-pill" id="stat-voided">
+      <span class="dot bg-rose-500"></span><span id="stat-voided-val">— voided</span>
+    </div>
+    <div class="stat-pill" id="stat-review">
+      <span class="dot bg-amber-400"></span><span id="stat-review-val">— in review</span>
+    </div>
+    <div class="stat-pill" id="stat-captured">
+      <span class="dot bg-emerald-500"></span><span id="stat-captured-val">— captured</span>
+    </div>
+    <div class="stat-pill ml-auto" id="stat-nodes">
+      <span class="dot bg-neutral-400"></span><span id="stat-nodes-val">— nodes</span>
+    </div>
+    <div class="stat-pill" id="stat-flagged">
+      <span class="dot bg-rose-500"></span><span id="stat-flagged-val">— high risk</span>
+    </div>
+  </div>
 
   <!-- Application Header -->
   <header class="bg-[#181818] border-b border-[#272727] px-6 py-4 flex flex-wrap items-center justify-between gap-4">
@@ -454,6 +544,45 @@
     let currentMetrics = null;
     let groundTruthActive = false;
     let currentGraphData = null;
+    let prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // ---- Reset Modal -------------------------------------------------------
+    (function setupResetModal() {
+      const overlay = document.getElementById('reset-modal-overlay');
+      const box = document.getElementById('reset-modal-box');
+
+      function openModal() {
+        overlay.classList.remove('hidden');
+        overlay.style.opacity = '0';
+        box.style.opacity = '0';
+        box.style.transform = 'scale(0.95)';
+        requestAnimationFrame(() => {
+          overlay.style.opacity = '1';
+          box.style.opacity = '1';
+          box.style.transform = 'scale(1)';
+        });
+        document.getElementById('reset-modal-confirm').focus();
+      }
+
+      function closeModal() {
+        overlay.style.opacity = '0';
+        box.style.transform = 'scale(0.95)';
+        setTimeout(() => overlay.classList.add('hidden'), 220);
+      }
+
+      document.getElementById('reset-modal-cancel').onclick = closeModal;
+      overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closeModal(); });
+
+      // Wire confirm button — actual reset logic below in resetDemo()
+      document.getElementById('reset-modal-confirm').onclick = async () => {
+        closeModal();
+        await _doReset();
+      };
+
+      // Expose opener
+      window._openResetModal = openModal;
+    })();
 
     // Initialize Cytoscape with geometric shapes per tier (6.5)
     function initCytoscape() {
@@ -616,7 +745,7 @@
     }
 
     // Load Cytoscape Graph Data (6.4, 6.5, 6.10)
-    async function loadGraph() {
+    async function loadGraph(zoomToFlagged = false) {
       const loader = document.getElementById('graph-loading');
       const errBox = document.getElementById('graph-error');
       loader.classList.remove('hidden');
@@ -633,18 +762,38 @@
         cy.add(elements);
         cy.layout({
           name: 'cose',
-          animate: true,
-          animationDuration: 400,
+          animate: !prefersReducedMotion,
+          animationDuration: 420,
           nodeRepulsion: 7500,
-          idealEdgeLength: 70
+          idealEdgeLength: 70,
+          stop: function() {
+            if (zoomToFlagged && !prefersReducedMotion) {
+              const highNodes = cy.nodes('[risk_tier = "HIGH"]');
+              const target = highNodes.length ? highNodes : cy.nodes();
+              cy.animate({ fit: { eles: target, padding: 40 } }, { duration: 500, easing: 'ease-out-cubic' });
+            }
+            // Pulse HIGH-risk nodes after ring injection
+            if (zoomToFlagged && !prefersReducedMotion) {
+              cy.nodes('[risk_tier = "HIGH"]').forEach(node => {
+                node.animate({ style: { 'background-color': '#FF1A3C', 'width': '36px', 'height': '36px' } }, { duration: 180, easing: 'ease-in-out-cubic', complete: () => {
+                  node.animate({ style: { 'background-color': '#F43F5E', 'width': '30px', 'height': '30px' } }, { duration: 280, easing: 'ease-out-cubic' });
+                }});
+              });
+            }
+          }
         }).run();
 
         // Update Network Summary Text
         const nodeCount = (elements.nodes || []).length;
         const edgeCount = (elements.edges || []).length;
         const highCount = (elements.nodes || []).filter(n => n.data.risk_tier === 'HIGH').length;
-        document.getElementById('graph-summary-text').textContent = 
-          `Network summary: ${nodeCount} accounts rendered, ${edgeCount} transaction edges. ${highCount} high risk accounts flagged.`;
+        const medCount = (elements.nodes || []).filter(n => n.data.risk_tier === 'MEDIUM').length;
+        document.getElementById('graph-summary-text').textContent =
+          `Network summary: ${nodeCount} accounts rendered, ${edgeCount} transaction edges. ${highCount} high risk, ${medCount} medium risk flagged.`;
+
+        // Update live stat pills
+        document.getElementById('stat-nodes-val').textContent = `${nodeCount} nodes`;
+        document.getElementById('stat-flagged-val').textContent = `${highCount} high risk`;
 
         // Populate Accessible Keyboard Table
         renderAccessibleTable(elements.nodes || []);
@@ -733,9 +882,12 @@
           return;
         }
 
-        payments.forEach(tx => {
+        payments.forEach((tx, idx) => {
           const card = document.createElement('div');
-          card.className = 'p-3 bg-[#1F1F1F] border border-[#272727] rounded-lg caption-4 flex flex-col gap-2';
+          card.className = 'p-3 bg-[#1F1F1F] border border-[#272727] rounded-lg caption-4 flex flex-col gap-2 anim-slide-in';
+          if (!prefersReducedMotion) {
+            card.style.animationDelay = `${idx * 30}ms`;
+          }
 
           // Row 1: Amount + Status + Mode
           const row1 = document.createElement('div');
@@ -824,6 +976,17 @@
           container.appendChild(card);
         });
 
+        // Update live stats bar from payment data
+        const allPayments = await fetch('/api/payments?limit=500').then(r => r.json()).catch(() => payments);
+        const totalCount = allPayments.length;
+        const voidedCount = allPayments.filter(p => p.status === 'VOIDED').length;
+        const reviewCount = allPayments.filter(p => p.status === 'IN_REVIEW').length;
+        const capturedCount = allPayments.filter(p => p.status === 'CAPTURED').length;
+        document.getElementById('stat-total-val').textContent = `${totalCount} txns`;
+        document.getElementById('stat-voided-val').textContent = `${voidedCount} voided`;
+        document.getElementById('stat-review-val').textContent = `${reviewCount} in review`;
+        document.getElementById('stat-captured-val').textContent = `${capturedCount} captured`;
+
       } catch (e) {
         errBox.classList.remove('hidden');
       }
@@ -864,7 +1027,7 @@
           return;
         }
 
-        queue.forEach(item => {
+        queue.forEach((item, idx) => {
           const exp = item.explanation || {
             summary: "Payment held for manual analyst review based on neighborhood graph metrics.",
             evidence: ["Borderline score within human review threshold."],
@@ -873,7 +1036,10 @@
 
           const card = document.createElement('div');
           card.id = `queue-card-${item.id}`;
-          card.className = 'p-4 bg-[#1F1F1F] border border-[#272727] rounded-lg caption-4 flex flex-col gap-3';
+          card.className = 'p-4 bg-[#1F1F1F] border border-[#272727] rounded-lg caption-4 flex flex-col gap-3 anim-fade-up';
+          if (!prefersReducedMotion) {
+            card.style.animationDelay = `${idx * 60}ms`;
+          }
 
           // Header: Amount & Source badge
           const header = document.createElement('div');
@@ -947,6 +1113,17 @@
 
           container.appendChild(card);
         });
+
+        // Update live stats bar from payment data
+        const allPayments = await fetch('/api/payments?limit=500').then(r => r.json()).catch(() => payments);
+        const totalCount = allPayments.length;
+        const voidedCount = allPayments.filter(p => p.status === 'VOIDED').length;
+        const reviewCount = allPayments.filter(p => p.status === 'IN_REVIEW').length;
+        const capturedCount = allPayments.filter(p => p.status === 'CAPTURED').length;
+        document.getElementById('stat-total-val').textContent = `${totalCount} txns`;
+        document.getElementById('stat-voided-val').textContent = `${voidedCount} voided`;
+        document.getElementById('stat-review-val').textContent = `${reviewCount} in review`;
+        document.getElementById('stat-captured-val').textContent = `${capturedCount} captured`;
 
       } catch (e) {
         errBox.classList.remove('hidden');
@@ -1188,8 +1365,11 @@
           body: JSON.stringify({ ring_type: type })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        showToast(`Injected ${type.replace('_', ' ')} attack.`);
-        await refreshAll();
+        const label = type === 'cycle' ? 'cycle ring' : type === 'mule' ? 'mule funnel' : 'device farm';
+        showToast(`${label.charAt(0).toUpperCase() + label.slice(1)} attack injected — watch the graph.`);
+        // Refresh with zoom-to-flagged to highlight attack cluster
+        await loadGraph(true);
+        await Promise.all([loadPayments(), loadReviewQueue(), loadMetrics()]);
       } catch (e) {
         showToast(`Simulation failed: ${e.message}`, 'error');
       } finally {
@@ -1198,7 +1378,10 @@
     }
 
     async function resetDemo() {
-      if (!confirm("Are you sure you want to reset all demo payments and graph state?")) return;
+      window._openResetModal();
+    }
+
+    async function _doReset() {
       const btn = document.getElementById('btn-reset');
       setButtonBusy(btn, true, 'Resetting...');
       try {
