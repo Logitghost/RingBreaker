@@ -114,6 +114,17 @@
     .anim-fade-up {
       animation: fade-up 280ms cubic-bezier(0.22,1,0.36,1) both;
     }
+    @keyframes legend-flash {
+      0%   { background: transparent; }
+      30%  { background: rgba(244,63,94,0.15); }
+      100% { background: transparent; }
+    }
+    .legend-flashed {
+      animation: legend-flash 1200ms cubic-bezier(0.22,1,0.36,1) both;
+      border-radius: 6px;
+      padding: 2px 6px;
+      margin: -2px -6px;
+    }
 
     /* Reset confirmation modal */
     #reset-modal-overlay {
@@ -218,6 +229,13 @@
     </div>
   </div>
 
+  <!-- Ring Detection Alert Banner -->
+  <div id="ring-alert-banner" class="hidden bg-rose-950/40 border-b border-rose-500/30 px-6 py-2 flex items-center gap-3 caption-3 font-mono text-rose-200" role="alert" aria-live="assertive">
+    <span class="w-2 h-2 rounded-full bg-rose-400 animate-pulse"></span>
+    <span id="ring-alert-text">Ring pattern detected</span>
+    <button onclick="document.getElementById('ring-alert-banner').classList.add('hidden')" class="ml-auto text-rose-400 hover:text-white transition-colors duration-300">✕</button>
+  </div>
+
   <!-- Application Header -->
   <header class="bg-[#181818] border-b border-[#272727] px-6 py-4 flex flex-wrap items-center justify-between gap-4">
     <div>
@@ -274,7 +292,7 @@
           <div class="flex flex-wrap items-center gap-4 caption-3 font-mono">
             <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500"></span><span class="text-neutral-300">Low risk (circle)</span></div>
             <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-amber-500"></span><span class="text-neutral-300">Medium risk (box)</span></div>
-            <div class="flex items-center gap-2"><span class="w-3.5 h-3.5 bg-rose-500 clip-octagon inline-block"></span><span class="text-neutral-300">High risk (octagon)</span></div>
+            <div id="legend-high" class="flex items-center gap-2"><span class="w-3.5 h-3.5 bg-rose-500 clip-octagon inline-block"></span><span class="text-neutral-300">High risk (octagon)</span></div>
             
             <!-- Ground Truth Toggle (Demo Only) -->
             <label class="flex items-center gap-2 cursor-pointer border-l border-[#272727] pl-3 text-neutral-400 hover:text-white">
@@ -544,6 +562,7 @@
     let currentMetrics = null;
     let groundTruthActive = false;
     let currentGraphData = null;
+    let lastRingType = null;
     let prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // ---- Reset Modal -------------------------------------------------------
@@ -779,6 +798,13 @@
                   node.animate({ style: { 'background-color': '#F43F5E', 'width': '30px', 'height': '30px' } }, { duration: 280, easing: 'ease-out-cubic' });
                 }});
               });
+              // Flash the legend entry for HIGH risk
+              const legendHigh = document.getElementById('legend-high');
+              if (legendHigh) {
+                legendHigh.classList.remove('legend-flashed');
+                void legendHigh.offsetWidth; // force reflow to restart animation
+                legendHigh.classList.add('legend-flashed');
+              }
             }
           }
         }).run();
@@ -788,8 +814,9 @@
         const edgeCount = (elements.edges || []).length;
         const highCount = (elements.nodes || []).filter(n => n.data.risk_tier === 'HIGH').length;
         const medCount = (elements.nodes || []).filter(n => n.data.risk_tier === 'MEDIUM').length;
+        const ringInfo = lastRingType ? ` | Last attack: ${lastRingType === 'cycle' ? 'Cycle ring' : lastRingType === 'mule' ? 'Mule funnel' : 'Device farm'}` : '';
         document.getElementById('graph-summary-text').textContent =
-          `Network summary: ${nodeCount} accounts rendered, ${edgeCount} transaction edges. ${highCount} high risk, ${medCount} medium risk flagged.`;
+          `Network summary: ${nodeCount} accounts rendered, ${edgeCount} transaction edges. ${highCount} high risk, ${medCount} medium risk flagged.${ringInfo}`;
 
         // Update live stat pills
         document.getElementById('stat-nodes-val').textContent = `${nodeCount} nodes`;
@@ -1365,8 +1392,21 @@
           body: JSON.stringify({ ring_type: type })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const label = type === 'cycle' ? 'cycle ring' : type === 'mule' ? 'mule funnel' : 'device farm';
-        showToast(`${label.charAt(0).toUpperCase() + label.slice(1)} attack injected — watch the graph.`);
+        lastRingType = type;
+        const labelMap = { 'cycle': '🔄 Cycle ring', 'mule': '🔀 Mule funnel', 'shared_device': '📱 Device farm' };
+        const label = labelMap[type] || type;
+        showToast(`${label} attack injected — watch the graph pulse.`);
+        // Show ring detection alert banner
+        const alertBanner = document.getElementById('ring-alert-banner');
+        const alertText = document.getElementById('ring-alert-text');
+        if (alertBanner && alertText) {
+          const ringNames = { 'cycle': 'Cycle ring', 'mule': 'Mule funnel', 'shared_device': 'Device farm' };
+          alertText.textContent = `⚠ ${ringNames[type] || type} pattern detected — accounts flagged HIGH by GraphSAGE`;
+          alertBanner.classList.remove('hidden');
+          setTimeout(() => {
+            if (!alertBanner.classList.contains('hidden')) alertBanner.classList.add('hidden');
+          }, 6000);
+        }
         // Refresh with zoom-to-flagged to highlight attack cluster
         await loadGraph(true);
         await Promise.all([loadPayments(), loadReviewQueue(), loadMetrics()]);
@@ -1388,6 +1428,8 @@
         const res = await fetch('/api/admin/reset', { method: 'POST' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         showToast("Demo database and graph reset.");
+        lastRingType = null;
+        document.getElementById('ring-alert-banner').classList.add('hidden');
         await refreshAll();
       } catch (e) {
         showToast(`Reset failed: ${e.message}`, 'error');

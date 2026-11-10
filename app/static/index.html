@@ -153,6 +153,20 @@
       animation: num-pop 900ms cubic-bezier(0.22,1,0.36,1) both;
     }
 
+    /* Ring SVG pulse on the cycle edges */
+    @keyframes ring-edge-pulse {
+      0%, 100% { opacity: 0.6; }
+      50%      { opacity: 1; }
+    }
+    #ring-svg line[stroke="#F43F5E"] {
+      animation: ring-edge-pulse 2s cubic-bezier(0.22,1,0.36,1) infinite;
+    }
+
+    /* Active nav link */
+    .nav-link-active {
+      color: #FFFFFF !important;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, ::before, ::after {
         animation-duration: 0.01ms !important;
@@ -186,10 +200,10 @@
       </div>
       
       <div class="hidden sm:flex items-center gap-6 caption-4 text-neutral-400">
-        <a href="#problem" class="hover:text-white transition-colors duration-300 base-curve">Problem</a>
-        <a href="#benefits" class="hover:text-white transition-colors duration-300 base-curve">Outcomes</a>
-        <a href="#how-it-works" class="hover:text-white transition-colors duration-300 base-curve">Lifecycle</a>
-        <a href="#limitations" class="hover:text-white transition-colors duration-300 base-curve">Limitations</a>
+        <a href="#problem" class="nav-link hover:text-white transition-colors duration-300 base-curve">Problem</a>
+        <a href="#benefits" class="nav-link hover:text-white transition-colors duration-300 base-curve">Outcomes</a>
+        <a href="#how-it-works" class="nav-link hover:text-white transition-colors duration-300 base-curve">Lifecycle</a>
+        <a href="#limitations" class="nav-link hover:text-white transition-colors duration-300 base-curve">Limitations</a>
       </div>
 
       <div class="flex items-center gap-3">
@@ -286,6 +300,16 @@
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class="bg-[#181818] border border-[#272727] rounded-xl p-6">
+          <svg class="w-full h-16 mb-3" viewBox="0 0 200 40" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Isolated transactions checked independently">
+            <circle cx="30" cy="20" r="6" fill="#313131" stroke="#272727" stroke-width="1"/>
+            <circle cx="80" cy="20" r="6" fill="#313131" stroke="#272727" stroke-width="1"/>
+            <circle cx="130" cy="20" r="6" fill="#313131" stroke="#272727" stroke-width="1"/>
+            <circle cx="180" cy="20" r="6" fill="#313131" stroke="#272727" stroke-width="1"/>
+            <text x="30" y="24" text-anchor="middle" fill="#10B981" font-size="8" font-family="Geist Mono, monospace">✓</text>
+            <text x="80" y="24" text-anchor="middle" fill="#10B981" font-size="8" font-family="Geist Mono, monospace">✓</text>
+            <text x="130" y="24" text-anchor="middle" fill="#10B981" font-size="8" font-family="Geist Mono, monospace">✓</text>
+            <text x="180" y="24" text-anchor="middle" fill="#10B981" font-size="8" font-family="Geist Mono, monospace">✓</text>
+          </svg>
           <span class="caption-3 font-mono text-rose-400 block mb-2">Traditional checkout checks</span>
           <h3 class="title-3 text-white mb-2">Scores transactions in isolation</h3>
           <p class="caption-2 text-neutral-400 leading-relaxed">
@@ -294,6 +318,21 @@
         </div>
 
         <div class="bg-[#181818] border border-[#272727] rounded-xl p-6">
+          <svg id="ring-svg" class="w-full h-16 mb-3" viewBox="0 0 200 50" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Connected graph revealing circular fund flow">
+            <line x1="50" y1="15" x2="100" y2="38" stroke="#313131" stroke-width="1.5"/>
+            <line x1="100" y1="38" x2="150" y2="15" stroke="#313131" stroke-width="1.5"/>
+            <line x1="150" y1="15" x2="50" y2="15" stroke="#F43F5E" stroke-width="1.5" stroke-dasharray="4 2"/>
+            <circle cx="50" cy="15" r="7" fill="#F43F5E" stroke="#FFFFFF" stroke-width="1.5"/>
+            <circle cx="100" cy="38" r="7" fill="#F43F5E" stroke="#FFFFFF" stroke-width="1.5"/>
+            <circle cx="150" cy="15" r="7" fill="#F59E0B" stroke="#FFFFFF" stroke-width="1.5"/>
+            <text x="50" y="8" text-anchor="middle" fill="#F43F5E" font-size="6" font-family="Geist Mono, monospace">HIGH</text>
+            <text x="100" y="48" text-anchor="middle" fill="#F43F5E" font-size="6" font-family="Geist Mono, monospace">HIGH</text>
+            <text x="150" y="8" text-anchor="middle" fill="#F59E0B" font-size="6" font-family="Geist Mono, monospace">MED</text>
+            <path d="M62 18 L88 33" stroke="#F43F5E" stroke-width="0.8" marker-end="url(#arrowhead)"/>
+            <path d="M112 35 L138 20" stroke="#F43F5E" stroke-width="0.8" marker-end="url(#arrowhead)"/>
+            <path d="M140 13 L60 13" stroke="#F43F5E" stroke-width="0.8" marker-end="url(#arrowhead)"/>
+            <defs><marker id="arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto"><path d="M0 0 L6 2 L0 4z" fill="#F43F5E"/></marker></defs>
+          </svg>
           <span class="caption-3 font-mono text-emerald-400 block mb-2">RingBreaker graph intelligence</span>
           <h3 class="title-3 text-white mb-2">Scores accounts by graph neighborhood</h3>
           <p class="caption-2 text-neutral-400 leading-relaxed">
@@ -485,6 +524,11 @@
     </section>
 
   </main>
+
+  <!-- Scroll to top button -->
+  <button id="scroll-top-btn" class="fixed bottom-6 right-6 z-30 hidden w-10 h-10 rounded-full bg-[#181818] border border-[#272727] text-neutral-400 hover:text-white hover:bg-[#272727] transition-colors duration-300 shadow-lg flex items-center justify-center focus-visible:ring-2 focus-visible:ring-white focus:outline-none" aria-label="Scroll to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+  </button>
 
   <!-- Footer (B10) -->
   <footer class="border-t border-[#272727] py-8 px-6 caption-4 text-neutral-400 flex flex-col sm:flex-row items-center justify-between max-w-[1200px] w-full mx-auto gap-4">
@@ -772,6 +816,32 @@
         // Show all words immediately if reduced motion
         document.querySelectorAll('.tagline-word').forEach(w => w.classList.add('active'));
       }
+
+      // Scroll-to-top button visibility
+      const scrollBtn = document.getElementById('scroll-top-btn');
+      if (scrollBtn && !prefersReducedMotion) {
+        const scrollObserver = new IntersectionObserver((entries) => {
+          scrollBtn.classList.toggle('hidden', entries[0].isIntersecting);
+        }, { threshold: 0 });
+        scrollObserver.observe(document.querySelector('#main-content > section:first-child'));
+      }
+
+      // Active nav link highlighting on scroll
+      const navLinks = document.querySelectorAll('.nav-link');
+      const sectionIds = ['problem', 'benefits', 'how-it-works', 'limitations'];
+      const navSections = sectionIds.map(id => document.getElementById(id)).filter(Boolean);
+      const navObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          const link = document.querySelector(`.nav-link[href="#${entry.target.id}"]`);
+          if (link) {
+            if (entry.isIntersecting) {
+              navLinks.forEach(l => l.classList.remove('nav-link-active'));
+              link.classList.add('nav-link-active');
+            }
+          }
+        });
+      }, { threshold: 0.3, rootMargin: '-80px 0px -40% 0px' });
+      navSections.forEach(sec => navObserver.observe(sec));
     });
   </script>
 </body>
