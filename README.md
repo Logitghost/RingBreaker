@@ -178,27 +178,6 @@ python -m pytest tests/ -q
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-| URL | Page |
-| :--- | :--- |
-| http://localhost:8000/ | Landing page |
-| http://localhost:8000/dashboard | Analyst dashboard |
-| http://localhost:8000/docs | Interactive API docs (Swagger) |
-
----
-
-## 3-Minute Demo Script
-
-| Time | Step |
-| :--- | :--- |
-| 0:00 – 0:25 | **The problem** — explain why row-by-row scoring misses rings; individual $50–$600 payments look normal |
-| 0:25 – 0:50 | **Calm baseline** — click "Send normal payments"; green nodes auto-captured (LOW, score < 0.40) |
-| 0:50 – 1:30 | **Fraud attack** — click "Simulate cycle ring"; live graph turns red; HIGH-risk payments voided before settlement |
-| 1:30 – 2:10 | **Review queue** — inspect AI explanation; click Approve / Decline to log analyst decisions as new training labels |
-| 2:10 – 2:45 | **Honest metrics** — point to metrics table (91.8% recall at 0.4% FP harm); drag threshold slider live |
-| 2:45 – 3:00 | **Close** — open-source MIT, PayPal Orders v2, clear limitations |
-
----
-
 ## Limitations
 
 RingBreaker will sometimes flag legitimate activity (false positives) and miss some fraud (false negatives). To mitigate false-positive harm, borderline payments are never automatically cancelled — they route to human review.
