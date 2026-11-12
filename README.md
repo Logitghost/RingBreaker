@@ -2,11 +2,11 @@
 
 **Network-aware payment fraud ring detection on PayPal Sandbox using Graph Neural Networks and LLM investigation.**
 
-Built for the **PayPal AI Hackathon** (Devpost). Hard deadline: Nov 12, 2026.
+Built for the **PayPal AI Hackathon** (Devpost). Submission: November 2026.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](requirements.txt)
-[![Tests](https://img.shields.io/badge/Tests-30%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-31%20passed-brightgreen.svg)](tests/)
 [![PayPal Orders v2](https://img.shields.io/badge/PayPal-Sandbox%20AUTHORIZE-003087.svg)](app/paypal_client.py)
 
 ---
@@ -29,11 +29,11 @@ Traditional checkout fraud checks score transactions **one row at a time**. When
 
 ```mermaid
 flowchart TD
-    A[Checkout Traffic / Simulator] -->|Create Order intent=AUTHORIZE| B[PayPal Sandbox API]
-    B -->|Order Authorized| C[FastAPI Scoring Service]
+    A[Checkout Traffic / Simulator] -->|Create Order intent=AUTHORIZE| B[PayPal Orders v2 API]
+    B -->|Buyer Approves & Authorizes| C[FastAPI Scoring Service]
     C -->|Update Edge & Hardware Tags| D[(Live GraphStore + SQLite)]
     D -->|Neighborhood Subgraph| E[3-Layer GraphSAGE GNN]
-    D -->|Node Features Only| F[XGBoost Tabular Baseline]
+    D -->|Tabular Features| F[XGBoost Baselines]
     E -->|Account Risk Score 0.0 - 1.0| G{Risk Tier Router}
     G -->|Score < 0.40: Low Risk| H[PayPal Capture]
     G -->|0.40 <= Score < 0.60: Medium Risk| I[Hold in Review Queue]
@@ -51,7 +51,7 @@ flowchart TD
 | PayPal Client | `app/paypal_client.py` | OAuth2, Orders v2 authorize / capture / void / webhook |
 | Graph Store | `app/graph_store.py` | Live NetworkX MultiDiGraph + SQLite audit trail |
 | GNN Detector | `ml/train_gnn.py` | 3-layer GraphSAGE with class-weighted loss |
-| XGBoost Baseline | `ml/train_baseline.py` | Tabular classifier on identical 15 node features |
+| XGBoost Baselines | `ml/train_baseline.py` | Tabular classifiers: Plain (15 node features) and Strong (+13 graph aggregates) |
 | LLM Investigator | `app/investigator.py` | Gemini / OpenAI plain-language explanation, Pydantic-validated |
 | Analyst Dashboard | `app/static/dashboard.html` | Cytoscape.js graph, live payments feed, threshold slider |
 | Landing Page | `app/static/index.html` | Editorial page with live Cytoscape mini-graph hero |
@@ -60,14 +60,14 @@ flowchart TD
 
 ## Honest Benchmark Results
 
-Evaluated on held-out test data: **1,160 accounts** (183 fraud, 977 legitimate; 15.78% fraud rate) with ring-level disjoint splits and no data leakage. All numbers below are sourced directly from `ml/artifacts/metrics.json`.
+Evaluated on held-out test data (single-run metrics from Seed 42): **1,160 accounts** (183 fraud, 977 legitimate; 15.78% fraud rate) with ring-level disjoint splits and no data leakage. All numbers below are sourced directly from `ml/artifacts/metrics.json`.
 
 ### Equal Operating Point — 2% FPR (Equal Comparison)
 
 | Metric | GNN (GraphSAGE) | Strong Tabular Baseline | Delta |
 | :--- | :---: | :---: | :---: |
 | **Recall** | **98.4%** | 71.0% | **+27.4pp** |
-| **Precision** | 90.5% | 87.8% | -7.3pp |
+| **Precision** | 90.5% | 87.8% | **+2.7pp** |
 | **F1** | 94.2% | 78.6% | +15.7pp |
 | **FPR** | 1.94% | 1.84% | ≈ same |
 | Test positives | 183 | 183 | — |
@@ -90,6 +90,8 @@ Evaluated on held-out test data: **1,160 accounts** (183 fraud, 977 legitimate; 
 | Legit sent to review (burden) | 0.2% (2/977) | 9.5% (93/977) | 17.2% (168/977) |
 | Legit incorrectly voided (harm) | 0.4% (4/977) | 2.5% (24/977) | 0.6% (6/977) |
 
+*Baseline definitions:* **Strong Baseline** is XGBoost trained on 15 node features plus 13 engineered graph-aggregate features (such as 2-hop neighbor counts, neighbor degree percentiles, and shared-device cluster sizes). **Plain Baseline** is XGBoost trained strictly on the 15 node features without graph topology.
+
 > **Key takeaway:** GNN captures ring structure through multi-hop message passing, achieving 98.4% recall at 2% FPR versus 71.0% for a strong graph-aggregate tabular baseline at the same FPR.
 
 ### What is real and what is simulated?
@@ -99,7 +101,7 @@ Evaluated on held-out test data: **1,160 accounts** (183 fraud, 977 legitimate; 
 | Graph Neural Network model | **Real** — PyTorch Geometric GraphSAGE, trained on synthetic graph |
 | XGBoost baseline | **Real** — trained independently, honest benchmark |
 | PayPal Orders v2 (authorize / capture / void) | **Simulated by default** — realistic schema + idempotency keys; live sandbox API calls when credentials provided in `.env` |
-| PayPal webhook verification | **Simulated by default** — HMAC-SHA256 logic implemented; live verification when `PAYPAL_WEBHOOK_ID` configured |
+| PayPal webhook verification | **Simulated by default** — REST API signature verification (`POST /v1/notifications/verify-webhook-signature`); live verification when sandbox credentials and `PAYPAL_WEBHOOK_ID` configured |
 | Transaction data | **Synthetic** — generated by `ml/build_graph.py` |
 | Device / IP fingerprints | **Simulated** — deterministic metadata attached by simulator |
 | Money movement | **Simulated** — sandbox credentials required; no real money |
@@ -117,8 +119,8 @@ Evaluated on held-out test data: **1,160 accounts** (183 fraud, 977 legitimate; 
 ### 1. Clone and set up
 
 ```bash
-git clone https://github.com/your-username/ringbreaker.git
-cd ringbreaker
+git clone https://github.com/Logitghost/RingBreaker.git
+cd RingBreaker
 
 python -m venv .venv
 
@@ -128,8 +130,8 @@ python -m venv .venv
 source .venv/bin/activate
 
 # CPU-only PyTorch (smaller download):
-pip install torch>=2.2.0 --index-url https://download.pytorch.org/whl/cpu
-pip install torch_geometric>=2.5.0
+pip install "torch>=2.2.0" --index-url https://download.pytorch.org/whl/cpu
+pip install "torch_geometric>=2.5.0"
 pip install -r requirements.txt
 ```
 
@@ -160,7 +162,7 @@ Pre-trained weights are included in `ml/artifacts/`. To reproduce from scratch:
 
 ```bash
 python ml/build_graph.py       # Build synthetic graph (5,904 nodes, ~50k edges)
-python ml/train_gnn.py         # Train GraphSAGE (Epoch 84, PR-AUC 0.9882)
+python ml/train_gnn.py         # Train GraphSAGE (Seed 42: Epoch 84, PR-AUC 0.9882)
 python ml/train_baseline.py    # Train XGBoost baseline
 python ml/evaluate.py          # Export ml/artifacts/metrics.json
 ```
@@ -215,8 +217,11 @@ ringbreaker/
 │   ├── simulator.py         # Traffic & fraud ring simulator
 │   └── static/              # HTML frontend (dashboard, landing, 404)
 ├── data/
+│   ├── device_mapping.json  # Account-device mapping (demo)
 │   ├── features.csv         # 15 extracted node features
-│   └── labels.csv           # Ground-truth fraud labels (training only)
+│   ├── graph_edges.npz      # Base transaction graph edges
+│   ├── labels.csv           # Ground-truth fraud labels (training only)
+│   └── summary.json         # Graph structure summary
 ├── docs/
 │   ├── ARCHITECTURE.md      # System design detail
 │   ├── PAYPAL_SETUP.md      # PayPal sandbox credential guide
@@ -227,12 +232,13 @@ ringbreaker/
 ├── ml/
 │   ├── artifacts/           # Trained weights + metrics.json
 │   ├── build_graph.py       # Synthetic graph generator
+│   ├── data_utils.py        # Data loading and preprocessing utils
 │   ├── evaluate.py          # Evaluation + metrics export
 │   ├── features.py          # Feature extraction (15 features)
 │   ├── train_baseline.py    # XGBoost baseline trainer
-│   └── train_gnn.py         # GraphSAGE trainer (Epoch 84)
+│   └── train_gnn.py         # GraphSAGE trainer (Seed 42: Epoch 84)
 ├── scripts/                 # Utility scripts (bench, verify, demo)
-├── tests/                   # 30 unit tests (pytest)
+├── tests/                   # 31 unit tests passed, 1 skipped (pytest)
 ├── .env.example             # Environment variable template
 ├── LICENSE                  # MIT
 └── requirements.txt         # Python dependencies

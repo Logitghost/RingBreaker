@@ -194,6 +194,19 @@ class RiskScorer:
             except Exception:
                 pass
 
+        env_low = os.getenv("THRESHOLD_LOW_CAPTURE")
+        env_high = os.getenv("THRESHOLD_HIGH_VOID")
+        if env_low:
+            try:
+                self.threshold_low = float(env_low)
+            except ValueError:
+                pass
+        if env_high:
+            try:
+                self.threshold_high = float(env_high)
+            except ValueError:
+                pass
+
         if self.graph_store:
             saved_low = self.graph_store.get_setting("threshold_low")
             saved_high = self.graph_store.get_setting("threshold_high")

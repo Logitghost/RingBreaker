@@ -38,9 +38,11 @@ class GraphStore:
 
     def _get_connection(self) -> sqlite3.Connection:
         if self._mem_conn is not None:
+            self._mem_conn.execute("PRAGMA foreign_keys = ON;")
             return self._mem_conn
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON;")
         return conn
 
     def _init_sqlite(self) -> None:
@@ -134,6 +136,12 @@ class GraphStore:
                     ring_id TEXT
                 )
             """)
+            # Performance & idempotency indexes
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_transactions_sender_timestamp ON transactions(sender_id, timestamp)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_transactions_status_timestamp ON transactions(status, timestamp)")
+            cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_paypal_order_unique ON transactions(paypal_order_id) WHERE paypal_order_id IS NOT NULL")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_review_decisions_payment ON review_decisions(payment_id)")
             conn.commit()
 
     def _init_networkx(self) -> None:
@@ -503,10 +511,10 @@ class GraphStore:
         """
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute("DELETE FROM review_decisions")
+            cursor.execute("DELETE FROM account_devices")
             cursor.execute("DELETE FROM transactions")
             cursor.execute("DELETE FROM accounts")
-            cursor.execute("DELETE FROM account_devices")
-            cursor.execute("DELETE FROM review_decisions")
             cursor.execute("DELETE FROM webhook_events")
             cursor.execute("DELETE FROM audit_log")
             conn.commit()

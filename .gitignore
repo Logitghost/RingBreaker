@@ -14,11 +14,6 @@ __pycache__/
 venv/
 env/
 ENV/
-.venv/Scripts/
-.venv/Lib/
-.venv/Lib64/
-.venv/Include/
-.venv/share/
 pyvenv.cfg
 
 # --- Credentials & secrets ---
@@ -52,5 +47,3 @@ htmlcov/
 *.exe
 zip/
 zip.zip
-RINGBREAKER_ANTIGRAVITY_PROMPT.md
-RINGBREAKER_FIX_PASS_PROMPT.md

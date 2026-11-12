@@ -19,8 +19,12 @@ sys.path.insert(0, str(ROOT_DIR))
 import re
 import json
 import time
+import uuid
+import logging
 from typing import Dict, Any, List, Optional, Literal
 from fastapi import FastAPI, HTTPException, Request, Response, Header, Depends, status
+
+logger = logging.getLogger("ringbreaker.api")
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
@@ -59,18 +63,25 @@ simulator = TrafficSimulator(graph_store, scorer, paypal_client)
 investigator = LLMInvestigator()
 
 ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-]{3,64}$")
-ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "rb_secret_admin_token_change_me")
+DEFAULT_ADMIN_TOKEN = "rb_secret_admin_token_change_me"
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", DEFAULT_ADMIN_TOKEN)
+
+if ADMIN_TOKEN == DEFAULT_ADMIN_TOKEN:
+    logger.warning("SECURITY WARNING: ADMIN_TOKEN is set to default placeholder. Remote admin access is disabled until changed.")
 
 
 def verify_admin_access(request: Request, x_admin_token: Optional[str] = Header(None)) -> bool:
     """
     Guards mutating admin endpoints when accessed remotely.
-    Localhost requests are permitted; non-localhost requires X-Admin-Token.
+    Localhost requests are permitted; non-localhost requires non-default X-Admin-Token.
     """
     client_host = request.client.host if request.client else ""
     is_local = client_host in ("127.0.0.1", "localhost", "::1", "testclient")
     if is_local:
         return True
+    if ADMIN_TOKEN == DEFAULT_ADMIN_TOKEN:
+        logger.error("Remote admin attempt rejected: ADMIN_TOKEN must be changed from default placeholder.")
+        raise HTTPException(status_code=403, detail="Remote admin disabled until ADMIN_TOKEN is changed from default.")
     if x_admin_token and x_admin_token == ADMIN_TOKEN:
         return True
     raise HTTPException(status_code=403, detail="Admin token required for remote management.")
@@ -185,7 +196,14 @@ def list_payments(limit: int = 50):
 
 
 @app.get("/api/graph")
-def get_graph(max_nodes: int = 100, show_ground_truth: bool = False):
+def get_graph(
+    request: Request,
+    max_nodes: int = 100,
+    show_ground_truth: bool = False,
+    x_admin_token: Optional[str] = Header(None)
+):
+    if show_ground_truth:
+        verify_admin_access(request, x_admin_token)
     return graph_store.get_cytoscape_elements(max_nodes=max_nodes, show_ground_truth=show_ground_truth)
 
 

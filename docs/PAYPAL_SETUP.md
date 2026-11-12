@@ -88,8 +88,8 @@ PAYPAL_CLIENT_SECRET=your_actual_client_secret_here
 PAYPAL_WEBHOOK_ID=your_actual_webhook_id_here
 
 # Operating Thresholds (Tuned on Validation Set)
-THRESHOLD_LOW_CAPTURE=0.31
-THRESHOLD_HIGH_VOID=0.66
+THRESHOLD_LOW_CAPTURE=0.40
+THRESHOLD_HIGH_VOID=0.60
 
 # Database & Server
 DATABASE_PATH=ringbreaker.db
