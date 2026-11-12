@@ -70,8 +70,8 @@ Built in Python with FastAPI, PyTorch Geometric, XGBoost, NetworkX, and PayPal O
 | Cytoscape.js | 3.x (CDN) | Interactive fraud graph visualization |
 | Tailwind CSS | 3.x (CDN) | Dashboard and landing page styling |
 | PayPal Orders v2 API | — | Authorize / Capture / Void / Webhook |
-| Gemini 1.5 Flash | — | LLM investigator (optional) |
-| OpenAI GPT-4o-mini | — | LLM investigator fallback (optional) |
+| Gemini 2.0 Flash | — | LLM investigator (optional) |
+| Claude (Anthropic) | — | Planning, architecture review, and code improvement during development |
 | Antigravity (Google DeepMind) | — | Pair programming assistant during development |
 | SQLite | — | Audit trail and reviewer decisions |
 
@@ -102,7 +102,7 @@ Built in Python with FastAPI, PyTorch Geometric, XGBoost, NetworkX, and PayPal O
 - [x] Analyst Approve/Decline flow persisting decisions to SQLite
 - [x] Incremental feedback retraining (`ml/retrain_from_feedback.py`)
 - [x] Zero label leakage verified — `is_fraud`, `ring_type`, `ring_id` never read in scoring path
-- [x] 30 unit tests pass (`pytest tests/ -q`)
+- [x] 31 unit tests pass (`pytest tests/ -q`)
 - [x] p95 latency ≤ 200ms verified (`scripts/bench_scoring.py`)
 
 ### Documentation

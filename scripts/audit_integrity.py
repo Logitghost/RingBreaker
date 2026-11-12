@@ -9,7 +9,7 @@ Audits and demonstrates critical flaws in the current implementation:
 
 import os
 import sys
-import pickle
+import json
 import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
@@ -110,13 +110,13 @@ def audit_gnn_checkpoint(artifacts_dir: str = "ml/artifacts"):
     print("AUDIT (C): GNN CHECKPOINT & BEST EPOCH AUDIT")
     print("=" * 70)
 
-    meta_path = os.path.join(artifacts_dir, "model_meta.pkl")
+    meta_path = os.path.join(artifacts_dir, "model_meta.json")
     if not os.path.exists(meta_path):
         print(f"Missing {meta_path}.")
         return
 
-    with open(meta_path, "rb") as f:
-        meta = pickle.load(f)
+    with open(meta_path, "r") as f:
+        meta = json.load(f)
 
     best_epoch = meta.get("best_epoch", "Unknown")
     best_val_pr_auc = meta.get("best_val_pr_auc", "Unknown")

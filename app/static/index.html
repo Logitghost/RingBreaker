@@ -496,14 +496,14 @@
         <div class="bg-[#181818] border border-[#272727] rounded-xl p-5">
           <h3 class="title-4 text-white mb-2">Why does the GNN beat the tabular baseline?</h3>
           <p class="text-neutral-400 leading-relaxed">
-            Across 5 seed evaluations on held out rings, GraphSAGE achieved 0.9882 PR-AUC compared to 0.9097 for a strong XGBoost baseline with 28 engineered graph features. The GNN captures multi hop directed flow patterns and cycle topology directly, whereas tabular aggregations only summarize local neighborhood statistics.
+            Across 5 seed evaluations on held-out rings, GraphSAGE achieved a mean of 0.9913 PR-AUC (0.9882 on the seed-42 test split) compared to 0.9342 PR-AUC (0.9097 on seed-42) for a strong XGBoost baseline with 28 engineered graph features. Multi-layer message passing learns inductive relational representations directly from directed transaction neighborhoods, rather than relying solely on manually engineered local summary statistics.
           </p>
         </div>
 
         <div class="bg-[#181818] border border-[#272727] rounded-xl p-5">
           <h3 class="title-4 text-white mb-2">Is real money involved?</h3>
           <p class="text-neutral-400 leading-relaxed">
-            No. This project is strictly a prototype for the PayPal AI Hackathon running against the developer sandbox environment.
+            No. This project is strictly a hackathon prototype running simulated transactions and PayPal sandbox APIs. No real money or live payment instruments are ever touched.
           </p>
         </div>
 

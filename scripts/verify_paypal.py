@@ -38,7 +38,8 @@ def run_pipeline_verification():
     # 1. Low-Risk Payment Scenario -> Expect CAPTURE
     print("\n>>> Scenario 1: Normal Payment ($85.00) -> Scored LOW RISK -> CAPTURE")
     order_low = client.create_order(amount=85.00, currency="USD", custom_id="tx_legit_sample_01")
-    print(f"  [Step 1 - Create Order]       ID: {order_low['id']} | Mode: {order_low['mode']} | Status: {order_low['status']}")
+    mode_low = order_low.get("order_mode", order_low.get("mode", "simulated"))
+    print(f"  [Step 1 - Create Order]       ID: {order_low['id']} | Mode: {mode_low} | Status: {order_low['status']}")
 
     auth_low = client.authorize_order(order_low['id'])
     auth_id_low = auth_low.get("authorization_id") or order_low['id']
@@ -53,7 +54,8 @@ def run_pipeline_verification():
     # 2. High-Risk Payment Scenario -> Expect VOID
     print("\n>>> Scenario 2: Suspicious Ring Payment ($750.00) -> Scored HIGH RISK -> VOID")
     order_high = client.create_order(amount=750.00, currency="USD", custom_id="tx_ring_sample_01")
-    print(f"  [Step 1 - Create Order]       ID: {order_high['id']} | Mode: {order_high['mode']} | Status: {order_high['status']}")
+    mode_high = order_high.get("order_mode", order_high.get("mode", "simulated"))
+    print(f"  [Step 1 - Create Order]       ID: {order_high['id']} | Mode: {mode_high} | Status: {order_high['status']}")
 
     auth_high = client.authorize_order(order_high['id'])
     auth_id_high = auth_high.get("authorization_id") or order_high['id']

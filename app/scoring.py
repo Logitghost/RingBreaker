@@ -1,6 +1,6 @@
 """
 RingBreaker - Live Scoring Engine & Risk Tier Router (Phase 3 Hardened)
-- Real GNN Model (GraphSAGE 3-layer) with 2-hop ego-graph extraction (C1, I4).
+- Real GNN Model (GraphSAGE 3-layer) with 3-hop ego-graph extraction (C1, I4).
 - Incremental feature extraction with local caching (< 200ms latency).
 - Platt probability calibration applied to raw model logits.
 - Zero ground-truth leakage: no reads of is_fraud, ring_type, or names.
@@ -37,11 +37,12 @@ ARTIFACTS_DIR = os.getenv("ARTIFACTS_DIR", "ml/artifacts")
 def extract_ego_subgraph_nodes(
     graph: nx.MultiDiGraph,
     center_node: str,
-    k_hops: int = 2,
-    max_nodes: int = 150
+    k_hops: int = 3,
+    max_nodes: int = 200
 ) -> List[str]:
     """
     Extracts the k-hop neighborhood around center_node.
+    3 hops matches the 3-layer GraphSAGE receptive field.
     Returns list of nodes with center_node as the first element.
     """
     if not graph.has_node(center_node):
@@ -300,8 +301,8 @@ class RiskScorer:
         else:
             # REAL GNN INFERENCE PATH (C1, I4)
             model_used = "gnn"
-            # 1. Extract 2-hop ego subgraph
-            ego_nodes = extract_ego_subgraph_nodes(graph_store.graph, account_id, k_hops=2, max_nodes=150)
+            # 1. Extract 3-hop ego subgraph (aligned with 3-layer GNN)
+            ego_nodes = extract_ego_subgraph_nodes(graph_store.graph, account_id, k_hops=3, max_nodes=200)
             node_to_local_idx = {n: i for i, n in enumerate(ego_nodes)}
 
             # 2. Extract node features for ego nodes
@@ -365,9 +366,9 @@ class RiskScorer:
         if not in_review:
             return rescored_results
 
-        # Find 2-hop neighborhood of new transaction
-        affected_nodes = set(extract_ego_subgraph_nodes(graph_store.graph, new_sender_id, k_hops=2)).union(
-            extract_ego_subgraph_nodes(graph_store.graph, new_receiver_id, k_hops=2)
+        # Find 3-hop neighborhood of new transaction
+        affected_nodes = set(extract_ego_subgraph_nodes(graph_store.graph, new_sender_id, k_hops=3)).union(
+            extract_ego_subgraph_nodes(graph_store.graph, new_receiver_id, k_hops=3)
         )
 
         for p in in_review:

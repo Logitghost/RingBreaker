@@ -127,12 +127,11 @@ def health_check():
     Honest system diagnostics report. Never exposes credentials.
     """
     best_epoch = "not_loaded"
-    meta_path = os.path.join(scorer.artifacts_dir, "model_meta.pkl")
+    meta_path = os.path.join(scorer.artifacts_dir, "model_meta.json")
     if os.path.exists(meta_path):
         try:
-            import pickle
-            with open(meta_path, "rb") as f:
-                meta = pickle.load(f)
+            with open(meta_path, "r") as f:
+                meta = json.load(f)
             best_epoch = meta.get("best_epoch", "unknown")
         except Exception:
             pass
@@ -386,7 +385,7 @@ async def paypal_webhook(request: Request):
     if event_type == "PAYMENT.CAPTURE.COMPLETED" and resource_id:
         with graph_store._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE transactions SET status = 'CAPTURED' WHERE paypal_auth_id = ?", (resource_id,))
+            cursor.execute("UPDATE transactions SET status = 'CAPTURED' WHERE paypal_capture_id = ? OR paypal_auth_id = ?", (resource_id, resource_id))
             conn.commit()
     elif event_type == "PAYMENT.AUTHORIZATION.VOIDED" and resource_id:
         with graph_store._get_connection() as conn:

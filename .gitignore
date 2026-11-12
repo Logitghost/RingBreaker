@@ -30,10 +30,9 @@ pyvenv.cfg
 *.db
 *.sqlite3
 
-# --- Large binary data (raw graph, edge arrays) ---
+# --- Large binary data: keep graph.pkl ignored, track lightweight runtime graph ---
 data/graph.pkl
-data/graph_edges.npz
-data/device_mapping.json
+# (data/graph_edges.npz and data/device_mapping.json are tracked for out-of-the-box runtime)
 
 # --- ML artifacts: keep weights + metadata, ignore nothing ---
 # (ml/artifacts/*.pt and ml/artifacts/*.json are tracked)

@@ -24,8 +24,8 @@ def test_single_feature_audit_guard():
     (C6) Verifies that no single tabular or graph feature has ROC-AUC >= 0.95.
     Prevents trivial synthetic generation shortcuts or ground truth leakage.
     """
-    features_path = ROOT_DIR / "ml" / "data" / "features.csv"
-    labels_path = ROOT_DIR / "ml" / "data" / "labels.csv"
+    features_path = ROOT_DIR / "data" / "features.csv"
+    labels_path = ROOT_DIR / "data" / "labels.csv"
 
     if not features_path.exists() or not labels_path.exists():
         pytest.skip("Dataset files not found; run ml/build_graph.py first.")
@@ -57,7 +57,7 @@ def test_ring_disjoint_splits():
     """
     (C7) Verifies that no ring_id appears across train, validation, or test splits.
     """
-    labels_path = ROOT_DIR / "ml" / "data" / "labels.csv"
+    labels_path = ROOT_DIR / "data" / "labels.csv"
     if not labels_path.exists():
         pytest.skip("labels.csv not found.")
 

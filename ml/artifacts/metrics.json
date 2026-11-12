@@ -91,7 +91,7 @@
       "threshold_high": 0.6,
       "target_max_fraud_in_capture": 0.015,
       "target_min_precision_void": 0.85,
-      "policy_description": "Auto-capture accounts scoring below 0.400 (validation fraud leakage target <= 1.5%). Auto-void accounts scoring above 0.600 (validation precision target >= 85.0%). Scores between 0.400 and 0.600 route to human review queue."
+      "policy_description": "Auto-capture accounts scoring below 0.400 (validation target <= 1.5%; held-out test leakage was 4.92% of fraud). Auto-void accounts scoring above 0.600 (validation precision target >= 85.0%). Scores between 0.400 and 0.600 route to human review queue."
     },
     "strong_baseline": {
       "threshold_low": 0.4,
@@ -1025,5 +1025,5 @@
       }
     }
   ],
-  "honest_assessment": "GNN outperforms the Strong Tabular Baseline by +0.0785 PR-AUC (+0.0165 ROC-AUC). Multi-hop message passing accurately isolates cyclic dispersion and multi-step mule consolidation where tabular neighbor aggregates only partially capture local connectivity."
+  "honest_assessment": "GNN outperforms the Strong Tabular Baseline by +0.0785 PR-AUC (+0.0165 ROC-AUC) on the held-out test split, with 5-seed mean PR-AUC 0.9913 vs 0.9342. Multi-layer inductive message passing aggregates relational representations directly from directed multi-hop graph neighborhoods rather than relying solely on manually engineered local summary aggregates. Note that formal ablations isolating specific cycle or subgraph motifs were not performed."
 }

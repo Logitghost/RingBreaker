@@ -83,6 +83,29 @@ def run_phase3_demo(output_file: str = "docs/evidence/phase3_demo_run.txt") -> b
     output_lines.append("-" * 86)
     output_lines.append("Fraud Scenario 1: Circular Flow Ring Execution (Money moves A -> B -> C -> A)")
 
+    # Seed realistic camouflage warmup transactions matching build_graph.py
+    now = time.time()
+    for i, node in enumerate(cycle_nodes):
+        dev = f"dev_demo_cyc_{i}"
+        graph_store.device_mapping[node] = [dev]
+        graph_store.ground_truth[node] = {
+            "is_fraud": 1,
+            "ring_type": "cycle",
+            "ring_id": "ring_demo_cycle"
+        }
+        for w in range(4):
+            partner = random.choice(legit_nodes)
+            w_time = now - random.uniform(86400 * 2, 86400 * 10)
+            w_amt = round(random.uniform(25.0, 75.0), 2)
+            w_tx = f"tx_cam_cyc_{i}_{w}"
+            if random.random() < 0.5:
+                graph_store.graph.add_edge(node, partner, key=w_tx, tx_id=w_tx, amount=w_amt,
+                                           timestamp=w_time, device_id=dev, is_ring_tx=False)
+            else:
+                p_dev = graph_store.device_mapping.get(partner, ["dev_legit_00"])[0]
+                graph_store.graph.add_edge(partner, node, key=w_tx, tx_id=w_tx, amount=w_amt,
+                                           timestamp=w_time, device_id=p_dev, is_ring_tx=False)
+
     for step in range(3):
         s = cycle_nodes[step]
         r = cycle_nodes[(step + 1) % 3]
